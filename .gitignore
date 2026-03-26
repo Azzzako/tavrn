@@ -1,0 +1,6 @@
+bin/
+tavrn.db
+.ssh/
+*.db-wal
+*.db-shm
+docs/superpowers/
