@@ -52,25 +52,15 @@ func (t TopBar) View() string {
 
 	statsLeft := fmt.Sprintf("  %s %s%s%s", onlineDot, onlineNum, dot, weekly)
 
-	titleText := "TAVRN.SH"
-	title := lipgloss.NewStyle().Foreground(ColorHighlight).Bold(true).Render(titleText)
-
 	room := lipgloss.NewStyle().Foreground(ColorAmber).Bold(true).Render(
 		fmt.Sprintf("#%s  ", t.Room))
 
-	leftW := lipgloss.Width(statsLeft)
-	rightW := lipgloss.Width(room)
-	centerPos := (t.Width - len(titleText)) / 2
-	gapLeft := centerPos - leftW
-	gapRight := t.Width - centerPos - len(titleText) - rightW
-	if gapLeft < 1 {
-		gapLeft = 1
-	}
-	if gapRight < 1 {
-		gapRight = 1
+	gap := t.Width - lipgloss.Width(statsLeft) - lipgloss.Width(room)
+	if gap < 1 {
+		gap = 1
 	}
 
-	statsLine := statsLeft + strings.Repeat(" ", gapLeft) + title + strings.Repeat(" ", gapRight) + room
+	statsLine := statsLeft + strings.Repeat(" ", gap) + room
 
 	// Line 3: Border
 	border := lipgloss.NewStyle().Foreground(ColorBorder).Render(
