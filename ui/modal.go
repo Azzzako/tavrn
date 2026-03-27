@@ -102,15 +102,11 @@ func (h HelpModal) View(width, height int) string {
 	b.WriteString(lipgloss.NewStyle().Foreground(ColorDim).Render(
 		fmt.Sprintf("  %s close", esc)))
 
-	box := lipgloss.NewStyle().
+	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(ColorBorder).
 		Padding(1, 2).
 		Render(b.String())
-
-	bgStyle := lipgloss.NewStyle().Background(ColorDarkBg)
-	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, box,
-		lipgloss.WithWhitespaceStyle(bgStyle))
 }
 
 // ─────────────────────────────────────
@@ -195,13 +191,9 @@ func (n NickModal) View(width, height int) string {
 	b.WriteString(lipgloss.NewStyle().Foreground(ColorDim).Render(
 		fmt.Sprintf("  %s confirm  ·  %s cancel", enter, esc)))
 
-	box := lipgloss.NewStyle().
+	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(ColorBorder).
 		Padding(1, 2).
 		Render(b.String())
-
-	bgStyle := lipgloss.NewStyle().Background(ColorDarkBg)
-	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, box,
-		lipgloss.WithWhitespaceStyle(bgStyle))
 }

@@ -345,27 +345,13 @@ func (a App) View() tea.View {
 		return a.splash.View()
 	}
 
-	// Modal overlay
-	if a.modal != ModalNone {
-		var content string
-		switch a.modal {
-		case ModalHelp:
-			content = a.helpModal.View(a.width, a.height)
-		case ModalNick:
-			content = a.nickModal.View(a.width, a.height)
-		}
-		v := tea.NewView(content)
-		v.AltScreen = true
-		return v
-	}
-
 	if a.width == 0 {
 		v := tea.NewView("Loading...")
 		v.AltScreen = true
 		return v
 	}
 
-	// Update live data
+	// Always render the base view
 	a.topBar.OnlineCount = a.hub.OnlineCount()
 	wc, _ := a.store.WeeklyVisitorCount()
 	a.topBar.WeeklyCount = wc
@@ -382,12 +368,10 @@ func (a App) View() tea.View {
 	a.online.Users = onlineNames
 	a.rooms.Rooms = []RoomInfo{{Name: "lounge", Count: a.hub.OnlineCount()}}
 
-	// Render
 	topBar := a.topBar.View()
 	chatView := a.chat.View()
 	bottomBar := a.bottomBar.View()
 
-	// 3-column layout: rooms | chat | online
 	var mainArea string
 	if a.rooms.Width > 0 {
 		roomsView := a.rooms.View()
@@ -397,8 +381,21 @@ func (a App) View() tea.View {
 		mainArea = chatView
 	}
 
-	content := lipgloss.JoinVertical(lipgloss.Left, topBar, mainArea, bottomBar)
-	v := tea.NewView(content)
+	base := lipgloss.JoinVertical(lipgloss.Left, topBar, mainArea, bottomBar)
+
+	// If modal is open, overlay it on top of the dimmed base
+	if a.modal != ModalNone {
+		var modalBox string
+		switch a.modal {
+		case ModalHelp:
+			modalBox = a.helpModal.View(a.width, a.height)
+		case ModalNick:
+			modalBox = a.nickModal.View(a.width, a.height)
+		}
+		base = Overlay(base, modalBox, a.width, a.height)
+	}
+
+	v := tea.NewView(base)
 	v.AltScreen = true
 	return v
 }

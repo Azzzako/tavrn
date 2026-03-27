@@ -50,11 +50,14 @@ func (r RoomsPanel) View() string {
 		b.WriteString(active + count + "\n")
 	}
 
-	// Future rooms placeholder
+	// Future rooms (locked, v0.5)
 	b.WriteString("\n")
-	b.WriteString(lipgloss.NewStyle().Foreground(ColorDimmer).Render("#gallery"))
+	locked := lipgloss.NewStyle().Foreground(ColorDimmer)
+	b.WriteString(locked.Render("  #gallery"))
 	b.WriteString("\n")
-	b.WriteString(lipgloss.NewStyle().Foreground(ColorDimmer).Render("#chaotic"))
+	b.WriteString(locked.Render("  #chaotic"))
+	b.WriteString("\n\n")
+	b.WriteString(lipgloss.NewStyle().Foreground(ColorDimmer).Italic(true).Render("  soon..."))
 
 	return SidebarStyle.
 		Width(r.Width).
