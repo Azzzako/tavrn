@@ -317,9 +317,9 @@ func (s Splash) renderCard() string {
 		{"/who", "see who's around"},
 		{"/help", "show all commands"},
 	} {
-		b.WriteString(fmt.Sprintf("  %s %s\n",
+		fmt.Fprintf(&b, "  %s %s\n",
 			SplashCommandStyle.Width(16).Render(c.cmd),
-			SplashDescStyle.Render(c.desc)))
+			SplashDescStyle.Render(c.desc))
 	}
 
 	b.WriteString("\n")
@@ -330,9 +330,9 @@ func (s Splash) renderCard() string {
 		{"CTRL+C", "exit tavern"},
 		{"ESC", "close modals"},
 	} {
-		b.WriteString(fmt.Sprintf("  %s %s\n",
+		fmt.Fprintf(&b, "  %s %s\n",
 			SplashCommandStyle.Width(16).Render(k.key),
-			SplashDescStyle.Render(k.desc)))
+			SplashDescStyle.Render(k.desc))
 	}
 
 	b.WriteString("\n")

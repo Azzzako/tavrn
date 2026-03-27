@@ -34,10 +34,7 @@ type NickChangeMsg struct{ Nick string }
 // Help Modal
 // ─────────────────────────────────────
 
-type HelpModal struct {
-	width  int
-	height int
-}
+type HelpModal struct{}
 
 func NewHelpModal() HelpModal {
 	return HelpModal{}
@@ -79,7 +76,7 @@ func (h HelpModal) View(width, height int) string {
 		{"SHIFT+arrows", "scroll chat"},
 	}
 	for _, k := range keys {
-		b.WriteString(fmt.Sprintf("  %s  %s\n", cmd.Width(18).Render(k.k), desc.Render(k.d)))
+		fmt.Fprintf(&b, "  %s  %s\n", cmd.Width(18).Render(k.k), desc.Render(k.d))
 	}
 
 	b.WriteString("\n")
@@ -94,7 +91,7 @@ func (h HelpModal) View(width, height int) string {
 		{"click + drag", "move your notes"},
 	}
 	for _, k := range gkeys {
-		b.WriteString(fmt.Sprintf("  %s  %s\n", cmd.Width(18).Render(k.k), desc.Render(k.d)))
+		fmt.Fprintf(&b, "  %s  %s\n", cmd.Width(18).Render(k.k), desc.Render(k.d))
 	}
 
 	b.WriteString("\n")
@@ -127,10 +124,8 @@ func (h HelpModal) View(width, height int) string {
 // ─────────────────────────────────────
 
 type NickModal struct {
-	input  textinput.Model
-	width  int
-	height int
-	err    string
+	input textinput.Model
+	err   string
 }
 
 func NewNickModal(currentNick string) NickModal {

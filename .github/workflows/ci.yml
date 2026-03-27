@@ -7,6 +7,29 @@ on:
     branches: [main, dev]
 
 jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Check formatting (gofmt)
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "Files not formatted:"
+            echo "$unformatted"
+            echo ""
+            echo "Run: gofmt -w ."
+            exit 1
+          fi
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+      - name: golangci-lint (staticcheck, unused, ineffassign)
+        run: golangci-lint run ./...
+
   build:
     name: Build
     runs-on: ubuntu-latest

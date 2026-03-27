@@ -1,0 +1,22 @@
+version: "2"
+
+formatters:
+  enable:
+    - gofmt
+
+linters:
+  default: none
+  enable:
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+
+issues:
+  exclude-dirs:
+    - vendor
+  exclude-rules:
+    - linters: [staticcheck]
+      text: "^QF"
+  max-issues-per-linter: 0
+  max-same-issues: 0

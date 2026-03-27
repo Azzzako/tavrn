@@ -225,10 +225,10 @@ func (g GalleryView) renderBackground() string {
 	for y := 0; y < g.height; y++ {
 		var b strings.Builder
 		for x := 0; x < g.width; x++ {
-			switch {
-			case (x+y)%6 == 0:
+			switch (x + y) % 6 {
+			case 0:
 				b.WriteRune('╲')
-			case (x+y)%6 == 3:
+			case 3:
 				b.WriteRune('╱')
 			default:
 				b.WriteRune(' ')

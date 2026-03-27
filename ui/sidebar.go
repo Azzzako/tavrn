@@ -115,7 +115,7 @@ func (o OnlinePanel) View() string {
 		}
 
 		for _, u := range shown {
-			b.WriteString(fmt.Sprintf("%s %s\n", dotStyle, u))
+			fmt.Fprintf(&b, "%s %s\n", dotStyle, u)
 		}
 		if overflow > 0 {
 			b.WriteString(dim.Render(fmt.Sprintf("  +%d more\n", overflow)))
@@ -137,7 +137,7 @@ func (o OnlinePanel) View() string {
 				title = title[:o.Width-9] + "..."
 			}
 			nowStyle := lipgloss.NewStyle().Foreground(ColorHighlight).Render(title)
-			b.WriteString(fmt.Sprintf("%s %s\n", note, nowStyle))
+			fmt.Fprintf(&b, "%s %s\n", note, nowStyle)
 		}
 
 		if len(o.Queue) > 0 {
@@ -157,7 +157,7 @@ func (o OnlinePanel) View() string {
 				num := dimmer.Render(fmt.Sprintf("%d.", i+1))
 				name := dim.Render(title)
 				count := dimmer.Render(fmt.Sprintf(" %d", req.Count))
-				b.WriteString(fmt.Sprintf("%s %s%s\n", num, name, count))
+				fmt.Fprintf(&b, "%s %s%s\n", num, name, count)
 			}
 			if len(o.Queue) > 5 {
 				b.WriteString(dim.Render(fmt.Sprintf("  +%d more\n", len(o.Queue)-5)))

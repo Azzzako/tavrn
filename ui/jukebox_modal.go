@@ -28,8 +28,6 @@ const (
 type JukeboxModal struct {
 	tab    jukeboxTab
 	engine *jukebox.Engine
-	width  int
-	height int
 
 	// Search tab
 	searchInput   textinput.Model
@@ -334,7 +332,7 @@ func (m JukeboxModal) viewNowPlaying(w int) string {
 			name := lipgloss.NewStyle().Foreground(ColorSand).Render(reqTitle)
 			count := lipgloss.NewStyle().Foreground(ColorDimmer).Render(
 				fmt.Sprintf("  %d req", req.Count))
-			b.WriteString(fmt.Sprintf("%s %s%s\n", num, name, count))
+			fmt.Fprintf(&b, "%s %s%s\n", num, name, count)
 		}
 		if len(state.Requests) > 5 {
 			b.WriteString(lipgloss.NewStyle().Foreground(ColorDim).Render(
@@ -400,16 +398,16 @@ func (m JukeboxModal) viewSearch(w int) string {
 				indicator := lipgloss.NewStyle().Foreground(ColorHighlight).Bold(true).Render(" ▸ ")
 				titleS := lipgloss.NewStyle().Foreground(ColorHighlight).Bold(true).Render(trackTitle)
 				sourceS := lipgloss.NewStyle().Foreground(ColorDimmer).Render(trackSource)
-				b.WriteString(fmt.Sprintf("%s%s %s %s\n",
+				fmt.Fprintf(&b, "%s%s %s %s\n",
 					indicator,
 					lipgloss.NewStyle().Foreground(ColorDim).Render(num),
-					titleS, sourceS))
+					titleS, sourceS)
 			} else {
 				titleS := lipgloss.NewStyle().Foreground(ColorSand).Render(trackTitle)
 				sourceS := lipgloss.NewStyle().Foreground(ColorDimmer).Render(trackSource)
-				b.WriteString(fmt.Sprintf("   %s %s %s\n",
+				fmt.Fprintf(&b, "   %s %s %s\n",
 					lipgloss.NewStyle().Foreground(ColorDim).Render(num),
-					titleS, sourceS))
+					titleS, sourceS)
 			}
 		}
 		b.WriteString("\n")
