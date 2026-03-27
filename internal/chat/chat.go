@@ -14,6 +14,7 @@ type Message struct {
 	Text        string
 	Timestamp   time.Time
 	IsSystem    bool
+	IsBanner    bool
 }
 
 // ParseResult holds the result of parsing user input.
@@ -65,5 +66,15 @@ func NewSystemMessage(room, text string) Message {
 		Text:      text,
 		Timestamp: time.Now(),
 		IsSystem:  true,
+	}
+}
+
+func NewBannerMessage(room, text string) Message {
+	return Message{
+		Room:      room,
+		Text:      text,
+		Timestamp: time.Now(),
+		IsSystem:  true,
+		IsBanner:  true,
 	}
 }

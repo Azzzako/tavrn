@@ -5,3 +5,4 @@ tavrn.db
 *.db-shm
 docs/superpowers/
 .worktrees/
+.banner

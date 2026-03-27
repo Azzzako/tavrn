@@ -494,6 +494,8 @@ func (a *App) handleHubMsg(msg session.Msg) {
 			Room:       msg.Room,
 			Timestamp:  time.Now(),
 		})
+	case session.MsgBanner:
+		a.chat.AddMessage(chat.NewBannerMessage(a.session.Room, msg.Text))
 	case session.MsgSystem, session.MsgUserJoined, session.MsgUserLeft:
 		a.chat.AddMessage(chat.NewSystemMessage(msg.Room, msg.Text))
 	case session.MsgPurge:

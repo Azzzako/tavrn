@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -16,21 +17,38 @@ import (
 	"tavrn/internal/store"
 )
 
+const bannerFile = ".banner"
+
 func main() {
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "purge":
 			runPurge()
 			return
+		case "--message":
+			if len(os.Args) < 3 {
+				fmt.Println("Usage: tavrn --message \"your message here\"")
+				os.Exit(1)
+			}
+			runMessage(os.Args[2])
+			return
 		case "help", "--help", "-h":
 			fmt.Println("Usage:")
-			fmt.Println("  tavrn          Start the SSH server")
-			fmt.Println("  tavrn purge    Purge all data (run from VPS terminal)")
+			fmt.Println("  tavrn                       Start the SSH server")
+			fmt.Println("  tavrn purge                 Purge all data")
+			fmt.Println("  tavrn --message \"text\"       Send banner to all connected users")
 			return
 		}
 	}
 
 	runServer()
+}
+
+func runMessage(text string) {
+	if err := os.WriteFile(bannerFile, []byte(text), 0600); err != nil {
+		log.Fatalf("failed to write banner: %v", err)
+	}
+	fmt.Printf("Banner sent: %s\n", text)
 }
 
 func runPurge() {
@@ -87,6 +105,7 @@ func runServer() {
 	// Schedulers
 	go startPurgeScheduler(st, h)
 	go startGalleryCleanup(st, h)
+	go watchBannerFile(h)
 
 	// Start SSH server
 	done := make(chan os.Signal, 1)
@@ -147,5 +166,30 @@ func startGalleryCleanup(st *store.Store, h *hub.Hub) {
 			Room: "gallery",
 		})
 		log.Println("Gallery cleanup complete")
+	}
+}
+
+func watchBannerFile(h *hub.Hub) {
+	for {
+		time.Sleep(1 * time.Second)
+
+		data, err := os.ReadFile(bannerFile)
+		if err != nil {
+			continue
+		}
+
+		text := strings.TrimSpace(string(data))
+		if text == "" {
+			continue
+		}
+
+		// Remove file immediately so it doesn't re-broadcast
+		os.Remove(bannerFile)
+
+		log.Printf("Broadcasting banner: %s", text)
+		h.BroadcastAll(session.Msg{
+			Type: session.MsgBanner,
+			Text: text,
+		})
 	}
 }

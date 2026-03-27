@@ -98,6 +98,19 @@ func (c *ChatView) renderMessages() {
 
 	prevNick := ""
 	for i, msg := range c.messages {
+		if msg.IsBanner {
+			// Admin banner: eye-catching, framed
+			bannerLine := lipgloss.NewStyle().Foreground(ColorAmber).Render("  ───")
+			bannerText := lipgloss.NewStyle().Foreground(ColorAmber).Bold(true).Render(
+				"  " + msg.Text)
+			lines = append(lines, "")
+			lines = append(lines, bannerLine)
+			lines = append(lines, bannerText)
+			lines = append(lines, bannerLine)
+			lines = append(lines, "")
+			prevNick = ""
+			continue
+		}
 		if msg.IsSystem {
 			// System messages: dimmed, centered feel
 			sysText := lipgloss.NewStyle().Foreground(ColorDim).Italic(true).Render(
