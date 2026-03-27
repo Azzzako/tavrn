@@ -9,7 +9,7 @@ import (
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"tavrn/internal/chat"
+	"tavrn.sh/internal/chat"
 )
 
 // Typing dots animation frames

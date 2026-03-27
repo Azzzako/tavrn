@@ -7,7 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"tavrn/internal/store"
+	"tavrn.sh/internal/store"
 )
 
 type GalleryNote struct {
@@ -43,10 +43,10 @@ func NewGalleryView(fingerprint string) GalleryView {
 	}
 }
 
-func (g *GalleryView) SetSize(w, h int)                     { g.width = w; g.height = h }
-func (g *GalleryView) SetScreenOffset(x, y int)             { g.screenOffX = x; g.screenOffY = y }
-func (g *GalleryView) AddNote(n GalleryNote)                { g.notes = append(g.notes, n) }
-func (g *GalleryView) ClearAll()                            { g.notes = nil; g.selected = -1 }
+func (g *GalleryView) SetSize(w, h int)         { g.width = w; g.height = h }
+func (g *GalleryView) SetScreenOffset(x, y int) { g.screenOffX = x; g.screenOffY = y }
+func (g *GalleryView) AddNote(n GalleryNote)    { g.notes = append(g.notes, n) }
+func (g *GalleryView) ClearAll()                { g.notes = nil; g.selected = -1 }
 
 func (g *GalleryView) LoadNotes(rows []store.NoteRow) {
 	g.notes = make([]GalleryNote, len(rows))

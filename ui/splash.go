@@ -26,7 +26,6 @@ const tavernArt = "" +
 	"     |____|________|____|    \n" +
 	"     |__|__|__|__|__|__|     "
 
-
 var artGradientPairs = [][2]color.Color{
 	{lipgloss.Color("137"), lipgloss.Color("94")},
 	{lipgloss.Color("172"), lipgloss.Color("137")},

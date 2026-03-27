@@ -10,11 +10,11 @@ import (
 	"syscall"
 	"time"
 
-	"tavrn/internal/hub"
-	"tavrn/internal/jukebox"
-	"tavrn/internal/server"
-	"tavrn/internal/session"
-	"tavrn/internal/store"
+	"tavrn.sh/internal/hub"
+	"tavrn.sh/internal/jukebox"
+	"tavrn.sh/internal/server"
+	"tavrn.sh/internal/session"
+	"tavrn.sh/internal/store"
 )
 
 const bannerFile = ".banner"

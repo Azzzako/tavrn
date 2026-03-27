@@ -20,7 +20,7 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/term"
 
-	"tavrn/internal/jukebox"
+	"tavrn.sh/internal/jukebox"
 )
 
 var version = "dev"

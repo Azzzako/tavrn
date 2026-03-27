@@ -9,18 +9,18 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/ssh"
-	gossh "golang.org/x/crypto/ssh"
 	"charm.land/wish/v2"
 	bm "charm.land/wish/v2/bubbletea"
 	lm "charm.land/wish/v2/elapsed"
+	"github.com/charmbracelet/ssh"
+	gossh "golang.org/x/crypto/ssh"
 
-	"tavrn/internal/hub"
-	"tavrn/internal/identity"
-	"tavrn/internal/jukebox"
-	"tavrn/internal/session"
-	"tavrn/internal/store"
-	"tavrn/ui"
+	"tavrn.sh/internal/hub"
+	"tavrn.sh/internal/identity"
+	"tavrn.sh/internal/jukebox"
+	"tavrn.sh/internal/session"
+	"tavrn.sh/internal/store"
+	"tavrn.sh/ui"
 )
 
 type Config struct {

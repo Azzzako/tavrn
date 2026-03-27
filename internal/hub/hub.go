@@ -2,7 +2,7 @@ package hub
 
 import (
 	"sync"
-	"tavrn/internal/session"
+	"tavrn.sh/internal/session"
 )
 
 type Hub struct {

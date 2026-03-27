@@ -8,7 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"tavrn/internal/jukebox"
+	"tavrn.sh/internal/jukebox"
 )
 
 // JukeboxSearchResultMsg carries search results back to the modal.

@@ -1,7 +1,7 @@
 package hub
 
 import (
-	"tavrn/internal/session"
+	"tavrn.sh/internal/session"
 	"testing"
 	"time"
 )

@@ -11,13 +11,13 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/harmonica"
-	"tavrn/internal/chat"
-	"tavrn/internal/hub"
-	"tavrn/internal/jukebox"
-	"tavrn/internal/room"
-	"tavrn/internal/sanitize"
-	"tavrn/internal/session"
-	"tavrn/internal/store"
+	"tavrn.sh/internal/chat"
+	"tavrn.sh/internal/hub"
+	"tavrn.sh/internal/jukebox"
+	"tavrn.sh/internal/room"
+	"tavrn.sh/internal/sanitize"
+	"tavrn.sh/internal/session"
+	"tavrn.sh/internal/store"
 )
 
 type HubMsg session.Msg

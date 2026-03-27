@@ -1,7 +1,7 @@
 package session
 
 import (
-	"tavrn/internal/ratelimit"
+	"tavrn.sh/internal/ratelimit"
 )
 
 type MsgType int

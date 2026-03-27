@@ -1,4 +1,4 @@
-module tavrn
+module tavrn.sh
 
 go 1.25.8
 

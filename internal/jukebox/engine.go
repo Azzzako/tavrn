@@ -11,14 +11,14 @@ import (
 type Phase int
 
 const (
-	PhaseIdle    Phase = iota
+	PhaseIdle Phase = iota
 	PhasePlaying
 )
 
 type Request struct {
 	Track     Track
-	Count     int       // how many users requested this
-	Votes     int       // how many votes for next
+	Count     int // how many users requested this
+	Votes     int // how many votes for next
 	Voters    map[string]bool
 	FirstTime time.Time
 }

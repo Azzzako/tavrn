@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
-	"tavrn/internal/jukebox"
+	"tavrn.sh/internal/jukebox"
 )
 
 type RoomInfo struct {
