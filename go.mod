@@ -7,6 +7,7 @@ require (
 	charm.land/bubbletea/v2 v2.0.2
 	charm.land/lipgloss/v2 v2.0.2
 	charm.land/wish/v2 v2.0.0
+	github.com/charmbracelet/harmonica v0.2.0
 	github.com/charmbracelet/ssh v0.0.0-20250826160808-ebfa259c7309
 	github.com/lucasb-eyer/go-colorful v1.3.0
 	modernc.org/sqlite v1.47.0

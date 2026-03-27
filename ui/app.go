@@ -2,11 +2,14 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
+	"math"
 	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/harmonica"
 	"tavrn/internal/admin"
 	"tavrn/internal/chat"
 	"tavrn/internal/hub"
@@ -22,6 +25,7 @@ type appState int
 
 const (
 	stateSplash appState = iota
+	stateTransition
 	stateTavern
 )
 
@@ -46,6 +50,11 @@ type App struct {
 	modal     ModalType
 	helpModal HelpModal
 	nickModal NickModal
+
+	// Transition animation
+	transSpring harmonica.Spring
+	transPos    float64 // 0.0 = fully hidden, 1.0 = fully revealed
+	transVel    float64
 }
 
 func NewApp(sess *session.Session, st *store.Store, h *hub.Hub, adm *admin.Admin, onSend func(session.Msg)) App {
@@ -106,10 +115,17 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.topBar.Frame++
 		a.online.Frame++
 		a.chat.Tick()
-		// Drive splash animations from the same tick
 		if a.state == stateSplash {
 			a.splash.frame++
 			a.splash.tickSparks()
+		}
+		if a.state == stateTransition {
+			a.transPos, a.transVel = a.transSpring.Update(a.transPos, a.transVel, 1.0)
+			// Snap to done when close enough
+			if math.Abs(a.transPos-1.0) < 0.01 {
+				a.transPos = 1.0
+				a.state = stateTavern
+			}
 		}
 		return a, doTick()
 
@@ -130,7 +146,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
 			switch keyMsg.String() {
 			case "enter", "y":
-				a.state = stateTavern
+				a.state = stateTransition
+				a.transSpring = harmonica.NewSpring(harmonica.FPS(30), 6.0, 0.8)
+				a.transPos = 0.0
+				a.transVel = 0.0
 				a.doLayout()
 				a.chat.AddMessage(chat.NewSystemMessage(a.session.Room,
 					"Welcome to the tavern. Type /help for commands."))
@@ -361,7 +380,7 @@ func (a App) View() tea.View {
 		return v
 	}
 
-	// Always render the base view
+	// Render the tavern view (used for both transition and normal)
 	a.topBar.OnlineCount = a.hub.OnlineCount()
 	wc, _ := a.store.WeeklyVisitorCount()
 	a.topBar.WeeklyCount = wc
@@ -405,8 +424,57 @@ func (a App) View() tea.View {
 		base = Overlay(base, modalBox, a.width, a.height)
 	}
 
+	// During transition: spring-animated wipe from top to bottom
+	if a.state == stateTransition {
+		base = a.renderTransition(base)
+	}
+
 	v := tea.NewView(base)
 	v.AltScreen = true
 	v.WindowTitle = "tavrn.sh"
 	return v
+}
+
+// renderTransition applies a spring-animated top-down wipe reveal.
+// transPos goes 0→1 with spring bounce. Lines above the reveal line
+// show normally, lines below are dimmed, the reveal line itself gets
+// a gradient fade.
+func (a App) renderTransition(content string) string {
+	lines := strings.Split(content, "\n")
+	total := len(lines)
+	if total == 0 {
+		return content
+	}
+
+	// How many lines to reveal (spring can overshoot past 1.0)
+	revealFloat := a.transPos * float64(total)
+	revealLine := int(revealFloat)
+	if revealLine > total {
+		revealLine = total
+	}
+
+	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("236"))
+	fadeColors := []color.Color{
+		lipgloss.Color("240"),
+		lipgloss.Color("238"),
+		lipgloss.Color("236"),
+	}
+
+	var result []string
+	for i, line := range lines {
+		if i < revealLine {
+			// Fully revealed
+			result = append(result, line)
+		} else if i < revealLine+len(fadeColors) {
+			// Fade zone
+			idx := i - revealLine
+			stripped := stripAnsi(line)
+			result = append(result, lipgloss.NewStyle().Foreground(fadeColors[idx]).Render(stripped))
+		} else {
+			// Hidden
+			stripped := stripAnsi(line)
+			result = append(result, dimStyle.Render(stripped))
+		}
+	}
+	return strings.Join(result, "\n")
 }
