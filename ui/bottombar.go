@@ -19,9 +19,9 @@ func (b BottomBar) View() string {
 
 	content := "  " +
 		keyStyle.Render("/help") + sep +
-		keyStyle.Render("SHIFT+") + descStyle.Render("arrows") + " " + descStyle.Render("scroll") + sep +
-		keyStyle.Render("CTRL+C") + " " + descStyle.Render("exit") + sep +
-		keyStyle.Render("/nick") + " " + descStyle.Render("rename")
+		keyStyle.Render("CTRL+P") + " " + descStyle.Render("post") + sep +
+		keyStyle.Render("CTRL+N") + " " + descStyle.Render("nick") + sep +
+		keyStyle.Render("CTRL+C") + " " + descStyle.Render("exit")
 
 	return BottomBarStyle.Width(b.Width).MaxWidth(b.Width).Render(content)
 }

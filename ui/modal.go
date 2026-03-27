@@ -16,6 +16,7 @@ const (
 	ModalHelp
 	ModalNick
 	ModalJoinRoom
+	ModalPost
 )
 
 // CloseModalMsg signals modal should close.
@@ -321,4 +322,79 @@ func (j JoinRoomModal) View(width, height int) string {
 		BorderForeground(ColorBorder).
 		Padding(1, 2).
 		Render(b2.String())
+}
+
+// ─────────────────────────────────────
+// Post Note Modal
+// ─────────────────────────────────────
+
+type PostNoteMsg struct{ Text string }
+
+type PostModal struct {
+	input textinput.Model
+}
+
+func NewPostModal() PostModal {
+	ti := textinput.New()
+	ti.Placeholder = "write something on the board..."
+	ti.Focus()
+	ti.CharLimit = 60
+	ti.Prompt = "> "
+	return PostModal{input: ti}
+}
+
+func (p PostModal) Update(msg tea.Msg) (PostModal, tea.Cmd) {
+	if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
+		switch keyMsg.String() {
+		case "esc":
+			return p, func() tea.Msg { return CloseModalMsg{} }
+		case "enter":
+			val := strings.TrimSpace(p.input.Value())
+			if val != "" {
+				return p, func() tea.Msg { return PostNoteMsg{Text: val} }
+			}
+			return p, nil
+		}
+	}
+	var cmd tea.Cmd
+	p.input, cmd = p.input.Update(msg)
+	return p, cmd
+}
+
+func (p PostModal) View(width, height int) string {
+	headerText := " Post a Note "
+	fillLen := 36 - len(headerText)
+	if fillLen < 4 {
+		fillLen = 4
+	}
+	leftFill := strings.Repeat("╱", fillLen/2)
+	rightFill := strings.Repeat("╱", fillLen-fillLen/2)
+
+	headerFill := lipgloss.NewStyle().Foreground(ColorBorder).Render(leftFill)
+	headerTitle := lipgloss.NewStyle().Foreground(ColorHighlight).Bold(true).Render(headerText)
+	headerFillR := lipgloss.NewStyle().Foreground(ColorBorder).Render(rightFill)
+	header := headerFill + headerTitle + headerFillR
+
+	var b3 strings.Builder
+	b3.WriteString(header)
+	b3.WriteString("\n\n")
+	b3.WriteString(lipgloss.NewStyle().Foreground(ColorDim).Render("  Leave a note on the board (60 chars max)"))
+	b3.WriteString("\n\n")
+	b3.WriteString("  " + p.input.View())
+
+	b3.WriteString("\n\n")
+	footerFill := lipgloss.NewStyle().Foreground(ColorBorder).Render(
+		strings.Repeat("╱", 36))
+	b3.WriteString(footerFill)
+	b3.WriteString("\n")
+	enter := lipgloss.NewStyle().Foreground(ColorHighlight).Bold(true).Render("ENTER")
+	esc := lipgloss.NewStyle().Foreground(ColorHighlight).Bold(true).Render("ESC")
+	b3.WriteString(lipgloss.NewStyle().Foreground(ColorDim).Render(
+		fmt.Sprintf("  %s post  ·  %s cancel", enter, esc)))
+
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(ColorBorder).
+		Padding(1, 2).
+		Render(b3.String())
 }

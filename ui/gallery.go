@@ -196,7 +196,7 @@ func (g GalleryView) View() string {
 
 	// Empty state
 	if len(g.notes) == 0 {
-		hint := "the board is empty. use /post <message> to leave a note."
+		hint := "the board is empty. press CTRL+P to leave a note."
 		hintStyle := lipgloss.NewStyle().Foreground(ColorDim).Italic(true)
 		cx := (g.width - len(hint)) / 2
 		cy := g.height / 2

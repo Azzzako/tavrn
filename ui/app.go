@@ -55,6 +55,7 @@ type App struct {
 	helpModal     HelpModal
 	nickModal     NickModal
 	joinRoomModal JoinRoomModal
+	postModal     PostModal
 
 	// Transition animation
 	transSpring harmonica.Spring
@@ -153,6 +154,38 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 
+	case PostNoteMsg:
+		a.modal = ModalNone
+		if a.session.Room != "gallery" {
+			// Auto-join gallery
+			a.switchRoom("gallery")
+		}
+		text := msg.Text
+		if len(text) > 60 {
+			text = text[:60]
+		}
+		x, y := a.gallery.RandomPosition()
+		noteID, err := a.store.CreateNote(x, y, text, a.session.Fingerprint, a.session.Nickname, a.session.ColorIndex)
+		if err != nil {
+			return a, nil
+		}
+		note := GalleryNote{
+			ID: noteID, X: x, Y: y,
+			Text: text, Nickname: a.session.Nickname,
+			Fingerprint: a.session.Fingerprint, ColorIndex: a.session.ColorIndex,
+		}
+		a.gallery.AddNote(note)
+		a.onSend(session.Msg{
+			Type: session.MsgNoteCreate,
+			Room: "gallery",
+			Note: &session.NoteData{
+				ID: noteID, X: x, Y: y,
+				Text: text, Nick: a.session.Nickname, Color: a.session.ColorIndex,
+			},
+			Fingerprint: a.session.Fingerprint,
+		})
+		return a, nil
+
 	case GalleryDeleteMsg:
 		a.store.DeleteNote(msg.NoteID, a.session.Fingerprint)
 		a.gallery.RemoveNote(msg.NoteID)
@@ -198,7 +231,21 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.updateModal(msg)
 	}
 
-	// Gallery room: route mouse events to gallery, keys to input for /post
+	// Global keybinds (work in any room, any state)
+	if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
+		switch keyMsg.String() {
+		case "ctrl+p":
+			a.modal = ModalPost
+			a.postModal = NewPostModal()
+			return a, nil
+		case "ctrl+n":
+			a.modal = ModalNick
+			a.nickModal = NewNickModal(a.session.Nickname)
+			return a, nil
+		}
+	}
+
+	// Gallery room: route mouse events to gallery
 	if a.session.Room == "gallery" {
 		switch msg := msg.(type) {
 		case tea.KeyPressMsg:
@@ -269,6 +316,10 @@ func (a App) updateModal(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ModalJoinRoom:
 		var cmd tea.Cmd
 		a.joinRoomModal, cmd = a.joinRoomModal.Update(msg)
+		return a, cmd
+	case ModalPost:
+		var cmd tea.Cmd
+		a.postModal, cmd = a.postModal.Update(msg)
 		return a, cmd
 	case ModalHelp:
 		// Help modal only responds to ESC (handled above)
@@ -638,6 +689,8 @@ func (a App) View() tea.View {
 			modalBox = a.nickModal.View(a.width, a.height)
 		case ModalJoinRoom:
 			modalBox = a.joinRoomModal.View(a.width, a.height)
+		case ModalPost:
+			modalBox = a.postModal.View(a.width, a.height)
 		}
 		base = Overlay(base, modalBox, a.width, a.height)
 	}
