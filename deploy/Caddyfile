@@ -1,0 +1,6 @@
+tavrn.sh {
+	root * /var/www/tavrn
+	@goget query go-get=1
+	rewrite @goget /goget.html
+	file_server
+}
