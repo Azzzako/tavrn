@@ -87,6 +87,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case EnterTavernMsg:
 		a.state = stateTavern
 		a.doLayout()
+		a.chat.AddMessage(chat.NewSystemMessage(a.session.Room,
+			"Welcome to the tavern. Type /help for commands."))
 		return a, WaitForHubMsg(a.session.Send)
 
 	case HubMsg:

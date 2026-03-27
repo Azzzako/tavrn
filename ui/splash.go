@@ -8,23 +8,20 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-const tavernArt = `
-        .  *  .     *    .  *
-    *  .    ___________    .
-   .   *  /           \  *   .
-      .  |  __|   |__  |  .
-   *     | |  |   |  | |     *
-     .   | |__|___|__| |   .
-  *   .  |    |   |    |  .   *
-      .  |  __|   |__  |  .
-   .     |_/___________\_|     .
-      .  |___|_|___|_|___|  .
-    *    |   |       |   |    *
-  .   .  |___|_______|___|  .   .
-      *  |               |  *
-   .     |_______________|     .
-        .  *  .     *    .  *
-`
+const tavernArt = `       _____
+      /     \
+     | () () |
+      \ ___ /
+    __|_____|__
+   /  |     |  \
+  |   | TAV |   |
+  |   | ERN |   |
+  |   |_____|   |
+  |  /       \  |
+  |_/  [] []  \_|
+    |  []  [] |
+    |_________|
+    |_|_|_|_|_|`
 
 type Splash struct {
 	nickname    string
@@ -58,8 +55,6 @@ func (s Splash) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return s, func() tea.Msg { return EnterTavernMsg{} }
 		case "q", "ctrl+c":
 			return s, tea.Quit
-		case "?":
-			return s, func() tea.Msg { return ShowHelpMsg{} }
 		}
 	}
 	return s, nil
@@ -72,36 +67,42 @@ func (s Splash) View() tea.View {
 		return v
 	}
 
-	// Build splash content
 	var b strings.Builder
 
-	// ASCII tavern art
-	art := lipgloss.NewStyle().Foreground(ColorAccent).Render(tavernArt)
-	b.WriteString(art)
+	// /// TAVRN.SH /// gradient header
+	diag := lipgloss.NewStyle().Foreground(ColorBorder).Bold(true).Render("///")
+	title := GradientText(" TAVRN.SH ", ColorHighlight, ColorAccent, true)
+	header := diag + title + diag
 	b.WriteString("\n")
-
-	// Title
-	title := SplashTitleStyle.Render("// WELCOME TO TAVRN //")
-	b.WriteString(title)
+	b.WriteString(header)
 	b.WriteString("\n")
-	subtitle := SplashSubtitleStyle.Render("a quiet place in the terminal")
-	b.WriteString(subtitle)
+	b.WriteString(SplashSubtitleStyle.Render("a quiet place in the terminal"))
 	b.WriteString("\n\n")
 
-	// Identity
+	// ASCII tavern art with gradient coloring
+	artLines := strings.Split(tavernArt, "\n")
+	for _, line := range artLines {
+		colored := GradientText(line, ColorAccent, ColorBorder, false)
+		b.WriteString(colored)
+		b.WriteString("\n")
+	}
+	b.WriteString("\n")
+
+	// Identity card
 	nick := s.nickname
 	if s.flair {
 		nick = "~" + nick
 	}
-	identLine := fmt.Sprintf("you are %s", NickStyle(0).Render(nick))
-	b.WriteString(identLine)
+	identLabel := SplashDescStyle.Render("you are ")
+	identNick := NickStyle(0).Render(nick)
+	b.WriteString(identLabel + identNick)
 	b.WriteString("\n")
+
 	fpShort := s.fingerprint
 	if len(fpShort) > 16 {
 		fpShort = fpShort[:16]
 	}
-	fpLine := SplashDescStyle.Render(fmt.Sprintf("key: %s...", fpShort))
-	b.WriteString(fpLine)
+	b.WriteString(SplashDescStyle.Render(fmt.Sprintf("key: %s...", fpShort)))
 	b.WriteString("\n")
 
 	// Commands section
@@ -111,54 +112,50 @@ func (s Splash) View() tea.View {
 	cmds := []struct{ cmd, desc string }{
 		{"/nick NAME", "change your handle"},
 		{"/who", "see who's around"},
-		{"/help", "show help card"},
+		{"/help", "show all commands"},
 	}
 	for _, c := range cmds {
-		line := fmt.Sprintf("  %s  %s",
-			SplashCommandStyle.Width(16).Render(c.cmd),
-			SplashDescStyle.Render(c.desc),
-		)
-		b.WriteString(line)
-		b.WriteString("\n")
+		cmd := SplashCommandStyle.Width(18).Render(c.cmd)
+		desc := SplashDescStyle.Render(c.desc)
+		b.WriteString(fmt.Sprintf("  %s %s\n", cmd, desc))
 	}
 
-	// Keybinds
+	// Keys section
 	b.WriteString("\n")
 	b.WriteString(SplashCategoryStyle.Render("KEYS"))
 	b.WriteString("\n")
 	keys := []struct{ key, desc string }{
-		{"CTRL+C", "exit tavern"},
 		{"ENTER", "send message"},
-		{"UP/DOWN", "scroll chat"},
+		{"CTRL+C", "exit tavern"},
+		{"UP / DOWN", "scroll chat"},
 	}
 	for _, k := range keys {
-		line := fmt.Sprintf("  %s  %s",
-			SplashCommandStyle.Width(16).Render(k.key),
-			SplashDescStyle.Render(k.desc),
-		)
-		b.WriteString(line)
-		b.WriteString("\n")
+		key := SplashCommandStyle.Width(18).Render(k.key)
+		desc := SplashDescStyle.Render(k.desc)
+		b.WriteString(fmt.Sprintf("  %s %s\n", key, desc))
 	}
 
 	// Purge notice
 	b.WriteString("\n")
-	purge := SplashDescStyle.Render("all data purged every sunday 23:59 UTC")
-	b.WriteString(purge)
+	b.WriteString(SplashDescStyle.Italic(true).Render(
+		"all data purged every sunday 23:59 UTC"))
 	b.WriteString("\n")
-	b.WriteString(SplashDescStyle.Render("nothing is permanent. draw while you can."))
+	b.WriteString(SplashDescStyle.Italic(true).Render(
+		"nothing is permanent. draw while you can."))
 
-	// Footer with actions
+	// Action footer
 	b.WriteString("\n\n")
-	enter := SplashKeyStyle.Render("[ ENTER ]") + " " + SplashDescStyle.Render("enter the tavern")
-	quit := SplashKeyStyle.Render("[ Q ]") + " " + SplashDescStyle.Render("exit")
-	footer := enter + "    " + quit
-	b.WriteString(footer)
+	enterKey := SplashKeyStyle.Render("[ ENTER ]")
+	enterDesc := lipgloss.NewStyle().Foreground(ColorSand).Render(" enter the tavern")
+	quitKey := SplashKeyStyle.Render("[ Q ]")
+	quitDesc := lipgloss.NewStyle().Foreground(ColorDim).Render(" exit")
+	b.WriteString(enterKey + enterDesc + "     " + quitKey + quitDesc)
 
 	// Version
 	b.WriteString("\n\n")
 	b.WriteString(SplashDescStyle.Render("[ v0.2 ]"))
 
-	// Put it all in a bordered box, centered on screen
+	// Box it up and center
 	box := SplashBorderStyle.Render(b.String())
 	bgStyle := lipgloss.NewStyle().Background(ColorDarkBg)
 	centered := lipgloss.Place(s.width, s.height, lipgloss.Center, lipgloss.Center, box,

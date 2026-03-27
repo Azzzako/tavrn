@@ -25,29 +25,44 @@ func NewSidebar() Sidebar {
 }
 
 func (s Sidebar) View() string {
-	header := lipgloss.NewStyle().Bold(true).Foreground(ColorSand)
+	sectionHeader := lipgloss.NewStyle().
+		Foreground(ColorAccent).
+		Bold(true).
+		MarginBottom(1)
 
-	// Online users
-	content := header.Render("NOW ONLINE") + "\n"
-	for _, u := range s.OnlineUsers {
-		bullet := lipgloss.NewStyle().Foreground(lipgloss.Color("108")).Render("*")
-		content += fmt.Sprintf(" %s %s\n", bullet, u)
+	dimText := lipgloss.NewStyle().Foreground(ColorDim)
+
+	// NOW ONLINE section
+	content := sectionHeader.Render("NOW ONLINE") + "\n"
+	if len(s.OnlineUsers) == 0 {
+		content += dimText.Render("  (empty)") + "\n"
+	} else {
+		for _, u := range s.OnlineUsers {
+			bullet := lipgloss.NewStyle().Foreground(lipgloss.Color("108")).Render("*")
+			content += fmt.Sprintf("  %s %s\n", bullet, u)
+		}
 	}
 
 	content += "\n"
-	content += header.Render("ROOMS") + "\n"
+
+	// ROOMS section
+	content += sectionHeader.Render("ROOMS") + "\n"
 	for _, r := range s.Rooms {
-		line := fmt.Sprintf(" #%-10s %d", r.Name, r.Count)
-		content += line + "\n"
+		count := lipgloss.NewStyle().Foreground(ColorDim).Render(fmt.Sprintf("%d", r.Count))
+		name := lipgloss.NewStyle().Foreground(ColorSand).Render(fmt.Sprintf("#%s", r.Name))
+		content += fmt.Sprintf("  %s  %s\n", name, count)
 	}
 
 	content += "\n"
-	content += header.Render("UP NEXT") + "\n"
-	content += lipgloss.NewStyle().Foreground(ColorDim).Render(" (coming soon)") + "\n"
+
+	// UP NEXT section
+	content += sectionHeader.Render("UP NEXT") + "\n"
+	content += dimText.Render("  (coming soon)") + "\n"
 
 	return SidebarStyle.
 		Width(s.Width).
 		Height(s.Height).
 		MaxHeight(s.Height).
+		Padding(1, 1).
 		Render(content)
 }
