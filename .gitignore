@@ -8,3 +8,4 @@ tavrn.db
 docs/superpowers/
 .worktrees/
 .banner
+.env

@@ -14,6 +14,8 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -70,11 +72,10 @@ func main() {
 		}
 	}
 
-	// Check mpv is available; fall back to no-audio silently if not.
+	// Check mpv is available; prompt user if missing.
 	if !noAudio {
 		if _, err := exec.LookPath("mpv"); err != nil {
-			fmt.Fprintln(os.Stderr, "tavrn: mpv not found — connecting without audio (install mpv for music)")
-			noAudio = true
+			noAudio = promptMissingMPV()
 		}
 	}
 
@@ -84,6 +85,44 @@ func main() {
 	}
 
 	connect(addr, noAudio)
+}
+
+// promptMissingMPV tells the user mpv is missing, shows the install command
+// for their OS, and asks whether to continue without music.
+// Returns true if user wants to continue without audio, false to exit.
+func promptMissingMPV() bool {
+	fmt.Fprintln(os.Stderr, "")
+	fmt.Fprintln(os.Stderr, "  mpv is not installed — it's needed for jukebox audio.")
+	fmt.Fprintln(os.Stderr, "")
+
+	switch runtime.GOOS {
+	case "darwin":
+		fmt.Fprintln(os.Stderr, "  Install with Homebrew:")
+		fmt.Fprintln(os.Stderr, "    brew install mpv")
+	case "linux":
+		fmt.Fprintln(os.Stderr, "  Install with your package manager:")
+		fmt.Fprintln(os.Stderr, "    Ubuntu/Debian:  sudo apt install mpv")
+		fmt.Fprintln(os.Stderr, "    Fedora:         sudo dnf install mpv")
+		fmt.Fprintln(os.Stderr, "    Arch:           sudo pacman -S mpv")
+	default:
+		fmt.Fprintln(os.Stderr, "  Install mpv from https://mpv.io/installation/")
+	}
+
+	fmt.Fprintln(os.Stderr, "")
+	fmt.Fprintf(os.Stderr, "  Continue without music? [Y/n] ")
+
+	reader := bufio.NewReader(os.Stdin)
+	answer, _ := reader.ReadString('\n')
+	answer = strings.TrimSpace(strings.ToLower(answer))
+
+	if answer == "n" || answer == "no" {
+		fmt.Fprintln(os.Stderr, "  Install mpv and run tavrn again. See you soon!")
+		os.Exit(0)
+	}
+
+	fmt.Fprintln(os.Stderr, "  Connecting without music... (use --no-audio to skip this prompt)")
+	fmt.Fprintln(os.Stderr, "")
+	return true
 }
 
 func connect(addr string, noAudio bool) {

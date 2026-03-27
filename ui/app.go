@@ -501,12 +501,16 @@ func (a *App) handleCommand(parsed chat.ParseResult) {
 func (a *App) handleHubMsg(msg session.Msg) {
 	switch msg.Type {
 	case session.MsgChat:
+		ts := msg.Timestamp
+		if ts.IsZero() {
+			ts = time.Now()
+		}
 		a.chat.AddMessage(chat.Message{
 			Nickname:   msg.Nickname,
 			ColorIndex: msg.ColorIndex,
 			Text:       msg.Text,
 			Room:       msg.Room,
-			Timestamp:  time.Now(),
+			Timestamp:  ts,
 		})
 	case session.MsgBanner:
 		a.chat.AddMessage(chat.NewBannerMessage(a.session.Room, msg.Text))

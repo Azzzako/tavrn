@@ -1,6 +1,8 @@
 package session
 
 import (
+	"time"
+
 	"tavrn.sh/internal/ratelimit"
 )
 
@@ -38,6 +40,7 @@ type Msg struct {
 	ColorIndex  int
 	Text        string
 	Room        string
+	Timestamp   time.Time
 	Note        *NoteData
 }
 

@@ -140,6 +140,7 @@ func (s *Server) teaHandler(sshSess ssh.Session) (tea.Model, []tea.ProgramOption
 			ColorIndex:  m.ColorIndex,
 			Text:        m.Text,
 			Room:        m.Room,
+			Timestamp:   m.CreatedAt,
 		}
 	}
 
