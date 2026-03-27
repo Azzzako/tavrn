@@ -182,8 +182,15 @@ func playAudio(r io.Reader) {
 		}
 		log.Printf("audio: now playing: %s - %s", header.Artist, header.Title)
 
+		// Check how much data is buffered
+		buffered := br.Buffered()
+		log.Printf("audio: %d bytes buffered in reader", buffered)
+		if buffered > 0 {
+			peek, _ := br.Peek(min(4, buffered))
+			log.Printf("audio: first bytes: %x", peek)
+		}
+
 		// Create a reader that reads MP3 bytes until the next track header.
-		// Track headers start with 0x00 (length prefix), MP3 frames with 0xFF.
 		tr := &trackReader{br: br}
 
 		decoder, err := gomp3.NewDecoder(tr)
@@ -227,8 +234,9 @@ func playAudio(r io.Reader) {
 // (detected by peeking: headers start with 0x00, MP3 data with 0xFF).
 // This lets the MP3 decoder read exactly one track's worth of data.
 type trackReader struct {
-	br   *bufio.Reader
-	done bool
+	br    *bufio.Reader
+	done  bool
+	total int
 }
 
 func (t *trackReader) Read(p []byte) (int, error) {
@@ -240,20 +248,24 @@ func (t *trackReader) Read(p []byte) (int, error) {
 	peek, err := t.br.Peek(1)
 	if err != nil {
 		t.done = true
-		if err == io.EOF {
-			return 0, io.EOF
-		}
-		return 0, err
+		log.Printf("audio: trackReader peek error: %v", err)
+		return 0, io.EOF
 	}
 
 	if peek[0] == 0x00 {
 		// Next bytes are a track header — this track is done
 		t.done = true
+		log.Printf("audio: trackReader hit next track header")
 		return 0, io.EOF
 	}
 
 	// Read MP3 data
-	return t.br.Read(p)
+	n, err := t.br.Read(p)
+	t.total += n
+	if t.total%(256*1024) < n {
+		log.Printf("audio: trackReader read %d bytes total so far", t.total)
+	}
+	return n, err
 }
 
 func handleResize(fd int, session *ssh.Session) {

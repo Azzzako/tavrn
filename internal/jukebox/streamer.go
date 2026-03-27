@@ -85,6 +85,13 @@ func (s *Streamer) StreamTrack(track Track) {
 	s.currentTrack = &track
 	s.audioBuffer = &bytes.Buffer{}
 	s.bufferReady = false
+
+	// Send header to all currently connected clients
+	for conn := range s.conns {
+		if err := EncodeTrackHeader(conn, track); err != nil {
+			log.Printf("streamer: header write error: %v", err)
+		}
+	}
 	s.mu.Unlock()
 
 	go s.stream(ctx, track)
@@ -107,10 +114,7 @@ func (s *Streamer) stream(ctx context.Context, track Track) {
 		return
 	}
 
-	// Send header to all currently connected clients
-	s.broadcastHeader(track)
-
-	// Fetch MP3 data
+	// Fetch MP3 data (header already sent by StreamTrack)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, track.URL, nil)
 	if err != nil {
 		log.Printf("streamer: request error: %v", err)
@@ -161,17 +165,6 @@ func (s *Streamer) stream(ctx context.Context, track Track) {
 			s.bufferReady = true
 			s.mu.Unlock()
 			return
-		}
-	}
-}
-
-func (s *Streamer) broadcastHeader(track Track) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	for conn := range s.conns {
-		if err := EncodeTrackHeader(conn, track); err != nil {
-			log.Printf("streamer: header write error: %v", err)
 		}
 	}
 }
