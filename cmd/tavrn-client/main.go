@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -132,8 +133,11 @@ func connect(addr string, noAudio bool) {
 	session.Stdout = os.Stdout
 	session.Stderr = os.Stderr
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	if !noAudio {
-		go startAudioChannel(conn)
+		go startAudioChannel(ctx, conn)
 	}
 
 	go handleResize(fd, session)
@@ -142,6 +146,7 @@ func connect(addr string, noAudio bool) {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigs
+		cancel()
 		session.Close()
 	}()
 
@@ -151,13 +156,14 @@ func connect(addr string, noAudio bool) {
 	}
 
 	session.Wait()
+	cancel() // kill mpv when session ends
 }
 
 // startAudioChannel opens the "tavrn-audio" SSH channel and plays audio via mpv.
-func startAudioChannel(conn *ssh.Client) {
+func startAudioChannel(ctx context.Context, conn *ssh.Client) {
 	ch, reqs, err := conn.OpenChannel("tavrn-audio", nil)
 	if err != nil {
-		return // server doesn't support audio
+		return
 	}
 	go ssh.DiscardRequests(reqs)
 	defer ch.Close()
@@ -165,26 +171,26 @@ func startAudioChannel(conn *ssh.Client) {
 	br := bufio.NewReaderSize(ch, 256*1024)
 
 	for {
-		// Read track header
-		_, err := jukebox.DecodeTrackHeader(br)
-		if err != nil {
-			return // channel closed
+		if ctx.Err() != nil {
+			return
 		}
 
-		// Read audio length
+		_, err := jukebox.DecodeTrackHeader(br)
+		if err != nil {
+			return
+		}
+
 		audioLen, err := jukebox.DecodeAudioLength(br)
 		if err != nil {
 			return
 		}
 
-		// Spawn mpv to play this track's MP3 data.
-		cmd := exec.Command("mpv",
+		cmd := exec.CommandContext(ctx, "mpv",
 			"--no-video",
 			"--no-terminal",
 			"-",
 		)
 
-		// Pipe exactly audioLen bytes to mpv's stdin
 		cmd.Stdin = io.LimitReader(br, int64(audioLen))
 		cmd.Stdout = nil
 		cmd.Stderr = nil
