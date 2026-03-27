@@ -37,16 +37,22 @@ func main() {
 			runMessage(os.Args[2])
 			return
 		case "--update":
-			if err := runUpdate(); err != nil {
+			if err := runUpdate(true); err != nil {
 				log.Fatalf("update: %v", err)
 			}
 			return
+		case "--update-client":
+			if err := runUpdate(false); err != nil {
+				log.Fatalf("update-client: %v", err)
+			}
+			return
 		case "help", "--help", "-h":
-			fmt.Println("Usage:")
+			fmt.Println("Maintainer commands:")
 			fmt.Println("  tavrn                       Start the SSH server")
 			fmt.Println("  tavrn purge                 Purge all data")
 			fmt.Println("  tavrn --message \"text\"      Send banner to all connected users")
-			fmt.Println("  tavrn --update              Pull main, rebuild, and restart the service")
+			fmt.Println("  tavrn --update-client       Pull main and rebuild only tavrn-client")
+			fmt.Println("  tavrn --update              Pull main, rebuild both binaries, and restart the service")
 			return
 		}
 	}
@@ -153,7 +159,7 @@ func runServer() {
 	log.Println("goodbye.")
 }
 
-func runUpdate() error {
+func runUpdate(restartServer bool) error {
 	if os.Geteuid() == 0 {
 		return fmt.Errorf("run tavrn --update as the tavrn user, not root")
 	}
@@ -178,18 +184,25 @@ func runUpdate() error {
 		return err
 	}
 
-	fmt.Println("Building tavrn...")
-	if err := runCommand(repoDir, env, "go", "build", "-o", "tavrn", "./cmd/tavrn"); err != nil {
-		return err
-	}
-
 	fmt.Println("Building tavrn-client...")
 	if err := runCommand(repoDir, env, "go", "build", "-o", "tavrn-client", "./cmd/tavrn-client"); err != nil {
 		return err
 	}
+	if restartServer {
+		fmt.Println("Building tavrn...")
+		if err := runCommand(repoDir, env, "go", "build", "-o", "tavrn", "./cmd/tavrn"); err != nil {
+			return err
+		}
 
-	fmt.Println("Finalizing update...")
-	if err := runCommand(repoDir, env, "sudo", "/usr/local/sbin/tavrn-finalize-update"); err != nil {
+		fmt.Println("Finalizing update...")
+		if err := runCommand(repoDir, env, "sudo", "/usr/local/sbin/tavrn-finalize-update"); err != nil {
+			return err
+		}
+	} else {
+		fmt.Println("Refreshing client binary symlink...")
+		if err := runCommand(repoDir, env, "sudo", "/usr/local/sbin/tavrn-refresh-client"); err != nil {
+			return err
+		}
 		return err
 	}
 
@@ -198,7 +211,11 @@ func runUpdate() error {
 		return err
 	}
 
-	fmt.Printf("Update complete. Running commit %s\n", rev)
+	if restartServer {
+		fmt.Printf("Server update complete. Running commit %s\n", rev)
+	} else {
+		fmt.Printf("Client update complete. Running commit %s\n", rev)
+	}
 	return nil
 }
 
