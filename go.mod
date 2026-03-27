@@ -9,8 +9,6 @@ require (
 	charm.land/wish/v2 v2.0.0
 	github.com/charmbracelet/harmonica v0.2.0
 	github.com/charmbracelet/ssh v0.0.0-20250826160808-ebfa259c7309
-	github.com/ebitengine/oto/v3 v3.4.0
-	github.com/hajimehoshi/go-mp3 v0.3.4
 	github.com/lucasb-eyer/go-colorful v1.3.0
 	golang.org/x/crypto v0.48.0
 	golang.org/x/term v0.41.0
@@ -34,7 +32,6 @@ require (
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/creack/pty v1.1.24 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/ebitengine/purego v0.9.0 // indirect
 	github.com/go-logfmt/logfmt v0.6.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

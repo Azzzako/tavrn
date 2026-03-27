@@ -3,17 +3,16 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"syscall"
 	"time"
 
-	"github.com/ebitengine/oto/v3"
-	gomp3 "github.com/hajimehoshi/go-mp3"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/term"
@@ -54,6 +53,25 @@ func main() {
 			return
 		default:
 			fmt.Fprintf(os.Stderr, "unknown flag: %s\n", arg)
+			os.Exit(1)
+		}
+	}
+
+	// Check mpv is installed unless --no-audio
+	if !noAudio {
+		if _, err := exec.LookPath("mpv"); err != nil {
+			fmt.Println("tavrn: mpv not found — required for audio playback")
+			fmt.Println()
+			switch runtime.GOOS {
+			case "darwin":
+				fmt.Println("  Install:  brew install mpv")
+			case "linux":
+				fmt.Println("  Install:  sudo apt install mpv")
+			default:
+				fmt.Println("  Install mpv from https://mpv.io/installation/")
+			}
+			fmt.Println()
+			fmt.Println("  Or connect without audio:  tavrn --no-audio")
 			os.Exit(1)
 		}
 	}
@@ -134,138 +152,77 @@ func connect(addr string, noAudio bool) {
 	session.Wait()
 }
 
-// startAudioChannel opens the "tavrn-audio" SSH channel and plays audio.
+// startAudioChannel opens the "tavrn-audio" SSH channel and plays audio via mpv.
 func startAudioChannel(conn *ssh.Client) {
 	ch, reqs, err := conn.OpenChannel("tavrn-audio", nil)
 	if err != nil {
-		log.Printf("audio: channel open failed: %v", err)
-		return
+		return // server doesn't support audio
 	}
 	go ssh.DiscardRequests(reqs)
 	defer ch.Close()
 
-	log.Printf("audio: channel opened, waiting for data...")
-	playAudio(ch)
-	log.Printf("audio: playback ended")
-}
-
-// playAudio demuxes the audio channel stream into track headers and MP3 data,
-// then decodes and plays the MP3 audio via oto.
-//
-// Wire format from the server:
-//
-//	[4-byte big-endian length][JSON TrackHeader][MP3 bytes...]
-//	[4-byte big-endian length][JSON TrackHeader][MP3 bytes...]
-//	...
-//
-// The MP3 bytes for one track flow until the next track header arrives.
-// We detect the boundary by peeking: header length prefixes start with 0x00
-// (since JSON metadata is always < 16 MB), while MP3 frames start with 0xFF.
-func playAudio(r io.Reader) {
-	// Initialize oto audio context (once per process).
-	// go-mp3 always decodes to signed 16-bit LE, stereo (2 channels).
-	// We don't know the sample rate until we decode the first MP3 frame,
-	// but Jamendo MP3 files are typically 44100 Hz. We'll create the context
-	// after decoding the first frame to get the actual sample rate.
-
-	br := bufio.NewReaderSize(r, 64*1024)
-
-	// Read the first track header — the server always sends one before MP3 data.
-	// oto context is created once per process
-	var otoCtx *oto.Context
+	br := bufio.NewReaderSize(ch, 256*1024)
 
 	for {
+		// Read track header
 		header, err := jukebox.DecodeTrackHeader(br)
 		if err != nil {
-			log.Printf("audio: header decode failed: %v", err)
-			return
+			return // channel closed
 		}
-		log.Printf("audio: now playing: %s - %s", header.Artist, header.Title)
+		_ = header
 
-		// Check how much data is buffered
-		buffered := br.Buffered()
-		log.Printf("audio: %d bytes buffered in reader", buffered)
-		if buffered > 0 {
-			peek, _ := br.Peek(min(4, buffered))
-			log.Printf("audio: first bytes: %x", peek)
-		}
+		// Spawn mpv to play this track's MP3 data.
+		// mpv reads from stdin, plays audio, no video, no terminal output.
+		cmd := exec.Command("mpv",
+			"--no-video",
+			"--no-terminal",
+			"--demuxer=lavf",
+			"--demuxer-lavf-format=mp3",
+			"-",
+		)
 
-		// Create a reader that reads MP3 bytes until the next track header.
+		// Pipe MP3 bytes from the SSH channel to mpv's stdin.
+		// trackReader stops at the next track header boundary.
 		tr := &trackReader{br: br}
+		cmd.Stdin = tr
 
-		decoder, err := gomp3.NewDecoder(tr)
-		if err != nil {
-			log.Printf("audio: mp3 decoder failed: %v", err)
-			return
+		// Suppress all mpv output
+		cmd.Stdout = nil
+		cmd.Stderr = nil
+
+		if err := cmd.Run(); err != nil {
+			// mpv exited — could be track ended or error, either way continue
+			continue
 		}
-
-		if otoCtx == nil {
-			sampleRate := decoder.SampleRate()
-			log.Printf("audio: sample rate: %d", sampleRate)
-
-			op := &oto.NewContextOptions{
-				SampleRate:   sampleRate,
-				ChannelCount: 2,
-				Format:       oto.FormatSignedInt16LE,
-			}
-
-			var readyCh <-chan struct{}
-			otoCtx, readyCh, err = oto.NewContext(op)
-			if err != nil {
-				log.Printf("audio: oto context failed: %v", err)
-				return
-			}
-			<-readyCh
-		}
-
-		log.Printf("audio: playing...")
-		player := otoCtx.NewPlayer(decoder)
-		player.Play()
-
-		for player.IsPlaying() {
-			time.Sleep(100 * time.Millisecond)
-		}
-		player.Close()
-		log.Printf("audio: track ended, waiting for next...")
 	}
 }
 
 // trackReader reads from a bufio.Reader until it encounters a track header
-// (detected by peeking: headers start with 0x00, MP3 data with 0xFF).
-// This lets the MP3 decoder read exactly one track's worth of data.
+// (detected by peeking: headers start with 0x00, MP3 frames start with 0xFF).
 type trackReader struct {
-	br    *bufio.Reader
-	done  bool
-	total int
+	br   *bufio.Reader
+	done bool
 }
 
 func (t *trackReader) Read(p []byte) (int, error) {
 	if t.done {
-		return 0, io.EOF
+		return 0, fmt.Errorf("EOF")
 	}
 
-	// Peek to see if we hit a new track header
+	// Peek to see if the next bytes are a track header
 	peek, err := t.br.Peek(1)
 	if err != nil {
 		t.done = true
-		log.Printf("audio: trackReader peek error: %v", err)
-		return 0, io.EOF
+		return 0, err
 	}
 
 	if peek[0] == 0x00 {
-		// Next bytes are a track header — this track is done
+		// Next bytes are a track header — this track's MP3 data is done
 		t.done = true
-		log.Printf("audio: trackReader hit next track header")
-		return 0, io.EOF
+		return 0, fmt.Errorf("EOF")
 	}
 
-	// Read MP3 data
-	n, err := t.br.Read(p)
-	t.total += n
-	if t.total%(256*1024) < n {
-		log.Printf("audio: trackReader read %d bytes total so far", t.total)
-	}
-	return n, err
+	return t.br.Read(p)
 }
 
 func handleResize(fd int, session *ssh.Session) {
@@ -291,8 +248,7 @@ func sshAuthMethods() []ssh.AuthMethod {
 		}
 	}
 
-	// Load key files from disk. If agent is available, add keys to it
-	// automatically (like ssh AddKeysToAgent=yes).
+	// Load key files from disk and add to agent automatically.
 	home, _ := os.UserHomeDir()
 	keyFiles := []string{
 		filepath.Join(home, ".ssh", "id_ed25519"),
@@ -309,7 +265,6 @@ func sshAuthMethods() []ssh.AuthMethod {
 			continue
 		}
 
-		// Add to agent if connected
 		if agentClient != nil {
 			agentClient.Add(agent.AddedKey{PrivateKey: key})
 		}
@@ -321,7 +276,6 @@ func sshAuthMethods() []ssh.AuthMethod {
 		methods = append(methods, ssh.PublicKeys(signer))
 	}
 
-	// Also use agent keys (includes any we just added + pre-existing)
 	if agentClient != nil {
 		methods = append(methods, ssh.PublicKeysCallback(agentClient.Signers))
 	}
