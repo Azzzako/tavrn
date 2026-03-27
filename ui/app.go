@@ -423,20 +423,19 @@ func (a *App) switchRoom(target string) {
 func (a *App) doLayout() {
 	roomsWidth := 0
 	onlineWidth := 0
-	if a.width >= 120 {
+	if a.width >= 140 {
+		roomsWidth = 18
+		onlineWidth = 20
+	} else if a.width >= 120 {
 		roomsWidth = 16
 		onlineWidth = 18
 	} else if a.width >= 100 {
-		roomsWidth = 14
-		onlineWidth = 16
-	} else if a.width >= 80 {
-		// Single sidebar only — rooms on left
-		roomsWidth = 14
+		// 2-column: rooms | chat
+		roomsWidth = 16
 		onlineWidth = 0
 	}
 	chatWidth := a.width - roomsWidth - onlineWidth
-	if chatWidth < 30 {
-		// Too narrow, drop all sidebars
+	if chatWidth < 40 {
 		roomsWidth = 0
 		onlineWidth = 0
 		chatWidth = a.width

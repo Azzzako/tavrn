@@ -58,10 +58,12 @@ var (
 			Foreground(ColorSand)
 
 	SidebarStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder(), true).
+			Border(lipgloss.NormalBorder(), false, false, false, true).
 			BorderForeground(ColorBorder).
 			Foreground(ColorSand).
-			Padding(1, 1)
+			PaddingTop(1).
+			PaddingLeft(1).
+			PaddingRight(0)
 
 	SystemMsgStyle = lipgloss.NewStyle().
 			Foreground(ColorDim).
