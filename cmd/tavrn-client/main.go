@@ -73,6 +73,7 @@ func connect(addr string, noAudio bool) {
 	}
 
 	config := &ssh.ClientConfig{
+		User:            os.Getenv("USER"),
 		Auth:            authMethods,
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         10 * time.Second,
