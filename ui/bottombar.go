@@ -5,8 +5,8 @@ import (
 )
 
 type BottomBar struct {
-	Width      int
-	IsGallery  bool
+	Width     int
+	IsGallery bool
 }
 
 func NewBottomBar() BottomBar {
@@ -14,28 +14,23 @@ func NewBottomBar() BottomBar {
 }
 
 func (b BottomBar) View() string {
-	keyStyle := lipgloss.NewStyle().Foreground(ColorHighlight).Bold(true)
-	descStyle := lipgloss.NewStyle().Foreground(ColorDim)
+	k := lipgloss.NewStyle().Foreground(ColorHighlight).Bold(true)
+	d := lipgloss.NewStyle().Foreground(ColorDim)
 	sep := lipgloss.NewStyle().Foreground(ColorDimmer).Render("  ·  ")
 
 	var content string
 	if b.IsGallery {
-		// Gallery: single-key shortcuts
 		content = "  " +
-			keyStyle.Render("P") + " " + descStyle.Render("post") + sep +
-			keyStyle.Render("J") + " " + descStyle.Render("rooms") + sep +
-			keyStyle.Render("H") + " " + descStyle.Render("help") + sep +
-			keyStyle.Render("D") + " " + descStyle.Render("delete") + sep +
-			keyStyle.Render("TAB") + " " + descStyle.Render("select") + sep +
-			keyStyle.Render("Q") + " " + descStyle.Render("exit")
+			k.Render("P") + " " + d.Render("post") + sep +
+			k.Render("J") + " " + d.Render("rooms") + sep +
+			k.Render("D") + " " + d.Render("delete") + sep +
+			k.Render("TAB") + " " + d.Render("select") + sep +
+			k.Render("H") + " " + d.Render("help")
 	} else {
-		// Chat: F-keys + slash commands
 		content = "  " +
-			keyStyle.Render("F1") + " " + descStyle.Render("help") + sep +
-			keyStyle.Render("F2") + " " + descStyle.Render("nick") + sep +
-			keyStyle.Render("F3") + " " + descStyle.Render("rooms") + sep +
-			keyStyle.Render("F4") + " " + descStyle.Render("post") + sep +
-			keyStyle.Render("/cmd") + " " + descStyle.Render("slash cmds")
+			k.Render("F1") + " " + d.Render("help") + sep +
+			k.Render("F3") + " " + d.Render("rooms") + sep +
+			k.Render("SHIFT+↑↓") + " " + d.Render("scroll")
 	}
 
 	return BottomBarStyle.Width(b.Width).MaxWidth(b.Width).Render(content)
