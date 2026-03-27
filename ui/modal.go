@@ -79,10 +79,13 @@ func (h HelpModal) View(width, height int) string {
 	b.WriteString(cat.Render("KEYS"))
 	b.WriteString("\n")
 	keys := []struct{ k, d string }{
-		{"ENTER", "send message"},
+		{"CTRL+J", "switch rooms"},
+		{"CTRL+P", "post note (#gallery)"},
+		{"CTRL+N", "change nickname"},
+		{"CTRL+H", "this help"},
 		{"CTRL+C", "exit tavern"},
 		{"ESC", "close modal"},
-		{"UP / DOWN", "scroll chat"},
+		{"SHIFT+arrows", "scroll chat"},
 	}
 	for _, k := range keys {
 		b.WriteString(fmt.Sprintf("  %s  %s\n", cmd.Width(18).Render(k.k), desc.Render(k.d)))

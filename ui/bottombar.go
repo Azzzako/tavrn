@@ -18,10 +18,11 @@ func (b BottomBar) View() string {
 	sep := lipgloss.NewStyle().Foreground(ColorDimmer).Render("  ·  ")
 
 	content := "  " +
-		keyStyle.Render("/help") + sep +
-		keyStyle.Render("CTRL+P") + " " + descStyle.Render("post") + sep +
-		keyStyle.Render("CTRL+N") + " " + descStyle.Render("nick") + sep +
-		keyStyle.Render("CTRL+C") + " " + descStyle.Render("exit")
+		keyStyle.Render("^H") + " " + descStyle.Render("help") + sep +
+		keyStyle.Render("^J") + " " + descStyle.Render("rooms") + sep +
+		keyStyle.Render("^P") + " " + descStyle.Render("post") + sep +
+		keyStyle.Render("^N") + " " + descStyle.Render("nick") + sep +
+		keyStyle.Render("^C") + " " + descStyle.Render("exit")
 
 	return BottomBarStyle.Width(b.Width).MaxWidth(b.Width).Render(content)
 }

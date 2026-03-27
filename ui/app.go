@@ -242,6 +242,18 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.modal = ModalNick
 			a.nickModal = NewNickModal(a.session.Nickname)
 			return a, nil
+		case "ctrl+j":
+			var counts []int
+			for _, rName := range room.All {
+				counts = append(counts, len(a.hub.Sessions(rName)))
+			}
+			a.modal = ModalJoinRoom
+			a.joinRoomModal = NewJoinRoomModal(room.All, counts, a.session.Room)
+			return a, nil
+		case "ctrl+h":
+			a.modal = ModalHelp
+			a.helpModal = NewHelpModal()
+			return a, nil
 		}
 	}
 
