@@ -1,50 +1,60 @@
+<div align="center">
+
 # tavrn.sh
 
-A public terminal tavern. Chat, listen to music, and hang out — all from your terminal.
+A terminal tavern over SSH.
 
-```
-ssh tavrn.sh
-```
+Chat, vote on music, and hang out with strangers — right from your terminal.
 
 No signup. No account. Your SSH key is your identity.
 
----
-
-### The tavern
-
-Connect and you're in. Chat with strangers in the lounge, post sticky notes on the gallery board, or search for music on the shared jukebox. Everyone sees the same Now Playing bar. Vote on what plays next.
-
 Everything resets weekly. Nothing is permanent.
 
-### Two ways in
+</div>
 
-**Bare SSH** — Works everywhere. You get the full TUI: chat, gallery, jukebox controls, voting. No sound.
+---
+
+<div align="center">
+
+### Quick connect
+
+Chat, gallery, jukebox controls, voting — no install needed.
 
 ```
 ssh tavrn.sh
 ```
 
-**tavrn binary** — The full experience. Same TUI, plus music through your speakers.
+### Full experience
 
-```
-brew install tavrn
-tavrn
-```
-
-or
+Same as above, plus music through your speakers.
 
 ```
 go install tavrn.sh/cmd/tavrn-client@latest
 tavrn
 ```
 
-Requires [mpv](https://mpv.io/) for audio. The binary checks on launch and tells you how to install it if missing.
+Requires [mpv](https://mpv.io/) for audio playback.
+The binary checks on launch and tells you how to install it.
+
+</div>
+
+---
+
+### What's inside
+
+**Rooms** — Hang out in the lounge, post notes on the gallery board, or leave ideas in suggestions.
+
+**Jukebox** — Search for music, add songs to the queue, vote on what plays next. Powered by [Jamendo](https://www.jamendo.com/)'s CC-licensed catalog.
+
+**Gallery** — A shared sticky note board. Post, drag, read what others left behind.
+
+**Now Playing** — A live animated bar shows the current track for everyone.
 
 ### Keybinds
 
 ```
-F1  help          F2  nickname       F3  rooms
-F4  jukebox       F5  post note      ESC close
+F1  help        F2  nickname     F3  rooms
+F4  jukebox     F5  post note    ESC close
 ```
 
 ### Contributing
