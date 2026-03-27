@@ -1,33 +1,68 @@
 package sanitize
 
-import "errors"
+import (
+	"errors"
+	"strings"
+	"unicode"
+	"unicode/utf8"
+)
 
-// Clean strips all bytes outside printable ASCII range (0x20-0x7E).
+// Clean strips control characters and invalid UTF-8 while preserving
+// printable ASCII, emojis, and international characters.
 func Clean(input string) string {
-	buf := make([]byte, 0, len(input))
-	for i := 0; i < len(input); i++ {
-		b := input[i]
-		if b >= 0x20 && b <= 0x7E {
-			buf = append(buf, b)
+	var b strings.Builder
+	b.Grow(len(input))
+	for _, r := range input {
+		if r == utf8.RuneError {
+			continue
+		}
+		// Allow printable ASCII (space through tilde)
+		if r >= 0x20 && r <= 0x7E {
+			b.WriteRune(r)
+			continue
+		}
+		// Allow Unicode letters, numbers, symbols, punctuation, and marks
+		// (covers emojis, CJK, accented chars, etc.)
+		// Block control characters, format chars, and surrogates.
+		if unicode.IsPrint(r) {
+			b.WriteRune(r)
 		}
 	}
-	return string(buf)
+	return b.String()
 }
 
-// CleanNick sanitizes a nickname. Must be 2-20 printable ASCII chars after cleaning.
+// CleanNick sanitizes a nickname. Must be 2-20 runes after cleaning.
+// Nicknames are ASCII-only to keep them easy to type and @-mention.
 func CleanNick(nick string) (string, error) {
-	cleaned := Clean(nick)
-	if len(cleaned) < 2 || len(cleaned) > 20 {
+	var b strings.Builder
+	for _, r := range nick {
+		if r >= 0x20 && r <= 0x7E {
+			b.WriteRune(r)
+		}
+	}
+	cleaned := b.String()
+	if utf8.RuneCountInString(cleaned) < 2 || utf8.RuneCountInString(cleaned) > 20 {
 		return "", errors.New("nickname must be 2-20 characters")
 	}
 	return cleaned, nil
 }
 
-// CleanChat sanitizes a chat message. Strips non-printable bytes, caps at 500 chars.
+// CleanChat sanitizes a chat message. Strips control chars, caps at 500 runes.
 func CleanChat(msg string) string {
 	cleaned := Clean(msg)
-	if len(cleaned) > 500 {
-		cleaned = cleaned[:500]
+	if utf8.RuneCountInString(cleaned) > 500 {
+		runes := []rune(cleaned)
+		cleaned = string(runes[:500])
+	}
+	return cleaned
+}
+
+// CleanNote sanitizes a gallery note. Strips control chars, caps at 280 runes.
+func CleanNote(msg string) string {
+	cleaned := Clean(msg)
+	if utf8.RuneCountInString(cleaned) > 280 {
+		runes := []rune(cleaned)
+		cleaned = string(runes[:280])
 	}
 	return cleaned
 }

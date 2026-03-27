@@ -200,10 +200,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Auto-join gallery
 			a.switchRoom("gallery")
 		}
-		text := msg.Text
-		if len(text) > 280 {
-			text = text[:280]
-		}
+		text := sanitize.CleanNote(msg.Text)
 		x, y := a.gallery.RandomPosition()
 		noteID, err := a.store.CreateNote(x, y, text, a.session.Fingerprint, a.session.Nickname, a.session.ColorIndex)
 		if err != nil {

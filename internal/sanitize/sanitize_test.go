@@ -1,6 +1,9 @@
 package sanitize
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestClean(t *testing.T) {
 	tests := []struct {
@@ -14,9 +17,25 @@ func TestClean(t *testing.T) {
 		{"strips null bytes", "he\x00llo", "hello"},
 		{"preserves space", "foo bar", "foo bar"},
 		{"preserves punctuation", "!@#$%^&*()", "!@#$%^&*()"},
-		{"strips high bytes", "hello\x80\xff", "hello"},
 		{"strips tabs and newlines", "hello\t\nworld", "helloworld"},
 		{"empty string", "", ""},
+		// Emoji support
+		{"preserves emoji", "hello 🍺 world", "hello 🍺 world"},
+		{"preserves multiple emojis", "🎵🎶🎤", "🎵🎶🎤"},
+		{"preserves emoji in sentence", "cheers 🍻 to that!", "cheers 🍻 to that!"},
+		{"preserves compound emoji", "👋🏽", "👋🏽"},
+		{"preserves common emojis", "❤️🔥✨💀👀🎉", "❤️🔥✨💀👀🎉"},
+		// International characters
+		{"preserves accented chars", "café résumé", "café résumé"},
+		{"preserves CJK", "你好世界", "你好世界"},
+		{"preserves japanese", "こんにちは", "こんにちは"},
+		{"preserves korean", "안녕하세요", "안녕하세요"},
+		{"preserves cyrillic", "привет", "привет"},
+		// Mixed
+		{"mixed ascii and emoji", "hello 🌍! 你好", "hello 🌍! 你好"},
+		{"strips control but keeps emoji", "\x00🍺\x01hello\x02🎵", "🍺hello🎵"},
+		// Invalid UTF-8
+		{"strips invalid utf8", "hello\x80\xff", "hello"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -42,6 +61,9 @@ func TestCleanNick(t *testing.T) {
 		{"min length", "ab", "ab", false},
 		{"max length", "abcdefghijklmnopqrst", "abcdefghijklmnopqrst", false},
 		{"empty after clean", "\x00\x01", "", true},
+		// Nicknames are ASCII-only
+		{"strips emoji from nick", "cool🍺guy", "coolguy", false},
+		{"strips unicode from nick", "café", "caf", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -64,19 +86,59 @@ func TestCleanChat(t *testing.T) {
 			t.Errorf("got %q", got)
 		}
 	})
-	t.Run("truncates at 500", func(t *testing.T) {
-		input := make([]byte, 600)
-		for i := range input {
-			input[i] = 'a'
+	t.Run("preserves emoji", func(t *testing.T) {
+		got := CleanChat("cheers 🍻!")
+		if got != "cheers 🍻!" {
+			t.Errorf("got %q", got)
 		}
-		got := CleanChat(string(input))
-		if len(got) != 500 {
-			t.Errorf("len = %d, want 500", len(got))
+	})
+	t.Run("truncates at 500 runes not bytes", func(t *testing.T) {
+		// 499 'a' + 1 emoji = 500 runes
+		input := strings.Repeat("a", 499) + "🍺"
+		got := CleanChat(input)
+		runes := []rune(got)
+		if len(runes) != 500 {
+			t.Errorf("rune count = %d, want 500", len(runes))
+		}
+		if runes[499] != '🍺' {
+			t.Errorf("last rune = %c, want 🍺", runes[499])
+		}
+	})
+	t.Run("truncates cleanly at rune boundary", func(t *testing.T) {
+		// 501 emojis — should truncate to 500
+		input := strings.Repeat("🍺", 501)
+		got := CleanChat(input)
+		runes := []rune(got)
+		if len(runes) != 500 {
+			t.Errorf("rune count = %d, want 500", len(runes))
 		}
 	})
 	t.Run("strips escape codes", func(t *testing.T) {
 		got := CleanChat("\x1b[0mhello")
 		if got != "[0mhello" {
+			t.Errorf("got %q", got)
+		}
+	})
+}
+
+func TestCleanNote(t *testing.T) {
+	t.Run("preserves emoji", func(t *testing.T) {
+		got := CleanNote("🍺 cheers!")
+		if got != "🍺 cheers!" {
+			t.Errorf("got %q", got)
+		}
+	})
+	t.Run("truncates at 280 runes", func(t *testing.T) {
+		input := strings.Repeat("🍺", 300)
+		got := CleanNote(input)
+		runes := []rune(got)
+		if len(runes) != 280 {
+			t.Errorf("rune count = %d, want 280", len(runes))
+		}
+	})
+	t.Run("strips control chars", func(t *testing.T) {
+		got := CleanNote("hello\x00\x01world")
+		if got != "helloworld" {
 			t.Errorf("got %q", got)
 		}
 	})
