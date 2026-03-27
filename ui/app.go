@@ -77,7 +77,7 @@ func WaitForHubMsg(ch <-chan session.Msg) tea.Cmd {
 }
 
 func doTick() tea.Cmd {
-	return tea.Tick(500*time.Millisecond, func(t time.Time) tea.Msg {
+	return tea.Tick(150*time.Millisecond, func(t time.Time) tea.Msg {
 		return tickMsg(t)
 	})
 }
@@ -94,6 +94,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.state == stateSplash {
 			a.splash.width = msg.Width
 			a.splash.height = msg.Height
+			if !a.splash.inited {
+				a.splash.initSparks()
+			}
 		} else {
 			a.doLayout()
 		}
@@ -103,14 +106,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.topBar.Frame++
 		a.online.Frame++
 		a.chat.Tick()
+		// Drive splash animations from the same tick
+		if a.state == stateSplash {
+			a.splash.frame++
+			a.splash.tickSparks()
+		}
 		return a, doTick()
-
-	case EnterTavernMsg:
-		a.state = stateTavern
-		a.doLayout()
-		a.chat.AddMessage(chat.NewSystemMessage(a.session.Room,
-			"Welcome to the tavern. Type /help for commands."))
-		return a, nil
 
 	case HubMsg:
 		a.handleHubMsg(session.Msg(msg))
@@ -124,12 +125,21 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.applyNickChange(msg.Nick)
 	}
 
-	// Splash state
+	// Splash state — handle keys directly (tick/resize handled above)
 	if a.state == stateSplash {
-		var cmd tea.Cmd
-		splash, cmd := a.splash.Update(msg)
-		a.splash = splash.(Splash)
-		return a, cmd
+		if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
+			switch keyMsg.String() {
+			case "enter", "y":
+				a.state = stateTavern
+				a.doLayout()
+				a.chat.AddMessage(chat.NewSystemMessage(a.session.Room,
+					"Welcome to the tavern. Type /help for commands."))
+				return a, nil
+			case "q", "ctrl+c":
+				return a, tea.Quit
+			}
+		}
+		return a, nil
 	}
 
 	// Modal captures all input when open
