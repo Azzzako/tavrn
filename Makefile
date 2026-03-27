@@ -2,9 +2,10 @@
 
 build:
 	go build -o bin/tavrn ./cmd/tavrn
+	go build -o bin/tavrn-admin ./cmd/tavrn-admin
 
 run: build
-	./bin/tavrn
+	./bin/tavrn-admin
 
 test:
 	go test ./... -v

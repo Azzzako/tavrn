@@ -1,6 +1,6 @@
 bin/
 /tavrn
-/tavrn-client
+/tavrn-admin
 tavrn.db
 .ssh/
 *.db-wal

@@ -29,7 +29,7 @@ ssh tavrn.sh
 Same as above, plus music through your speakers.
 
 ```
-go install tavrn.sh/cmd/tavrn-client@latest
+go install tavrn.sh/cmd/tavrn@latest
 tavrn
 ```
 

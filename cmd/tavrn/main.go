@@ -1,394 +1,361 @@
 package main
 
 import (
-	"bytes"
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"log"
+	"net"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"strconv"
-	"strings"
+	"runtime"
+	"sync"
 	"syscall"
 	"time"
 
-	"tavrn.sh/internal/hub"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/agent"
+	"golang.org/x/term"
+
 	"tavrn.sh/internal/jukebox"
-	"tavrn.sh/internal/server"
-	"tavrn.sh/internal/session"
-	"tavrn.sh/internal/store"
 )
 
-const bannerFile = ".banner"
+var version = "dev"
+
+// Track active mpv process so we can kill it on exit
+var (
+	activeMPV   *os.Process
+	activeMPVMu sync.Mutex
+)
+
+const (
+	serverAddr = "tavrn.sh:22"
+	devAddr    = "localhost:2222"
+)
 
 func main() {
-	if len(os.Args) > 1 {
-		switch os.Args[1] {
-		case "purge":
-			runPurge()
-			return
-		case "--message":
-			if len(os.Args) < 3 {
-				fmt.Println("Usage: tavrn --message \"your message here\"")
-				os.Exit(1)
-			}
-			runMessage(os.Args[2])
+	noAudio := false
+	dev := false
+
+	for _, arg := range os.Args[1:] {
+		switch arg {
+		case "--version":
+			fmt.Printf("tavrn %s\n", version)
 			return
 		case "--update":
-			if err := runUpdate(true); err != nil {
+			if err := runUpdate(); err != nil {
 				log.Fatalf("update: %v", err)
 			}
 			return
-		case "--update-client":
-			if err := runUpdate(false); err != nil {
-				log.Fatalf("update-client: %v", err)
+		case "--no-audio":
+			noAudio = true
+		case "--dev":
+			dev = true
+		case "--help", "-h":
+			fmt.Println("Usage:")
+			fmt.Println("  tavrn              Connect to tavrn.sh with audio")
+			fmt.Println("  tavrn --no-audio   Connect without audio")
+			fmt.Println("  tavrn --dev        Connect to localhost:2222")
+			fmt.Println("  tavrn --update     Update the local client binary")
+			fmt.Println("  tavrn --version    Print version")
+			return
+		default:
+			fmt.Fprintf(os.Stderr, "unknown flag: %s\n", arg)
+			os.Exit(1)
+		}
+	}
+
+	// Check mpv is installed unless --no-audio
+	if !noAudio {
+		if _, err := exec.LookPath("mpv"); err != nil {
+			fmt.Println("tavrn: mpv not found — required for audio playback")
+			fmt.Println()
+			switch runtime.GOOS {
+			case "darwin":
+				fmt.Println("  Install:  brew install mpv")
+			case "linux":
+				fmt.Println("  Install:  sudo apt install mpv")
+			default:
+				fmt.Println("  Install mpv from https://mpv.io/installation/")
 			}
-			return
-		case "help", "--help", "-h":
-			fmt.Println("Maintainer commands:")
-			fmt.Println("  tavrn                       Start the SSH server")
-			fmt.Println("  tavrn purge                 Purge all data")
-			fmt.Println("  tavrn --message \"text\"      Send banner to all connected users")
-			fmt.Println("  tavrn --update-client       Pull main and rebuild only tavrn-client")
-			fmt.Println("  tavrn --update              Pull main, rebuild both binaries, and restart the service")
-			return
+			fmt.Println()
+			fmt.Println("  Or connect without audio:  tavrn --no-audio")
+			os.Exit(1)
 		}
 	}
 
-	runServer()
-}
-
-func getPort() int {
-	if p := os.Getenv("TAVRN_PORT"); p != "" {
-		if n, err := strconv.Atoi(p); err == nil {
-			return n
-		}
+	addr := serverAddr
+	if dev {
+		addr = devAddr
 	}
-	return 2222
+
+	connect(addr, noAudio)
 }
 
-func runMessage(text string) {
-	if err := os.WriteFile(bannerFile, []byte(text), 0600); err != nil {
-		log.Fatalf("failed to write banner: %v", err)
+func connect(addr string, noAudio bool) {
+	authMethods := sshAuthMethods()
+	if len(authMethods) == 0 {
+		log.Fatal("no SSH keys found")
 	}
-	fmt.Printf("Banner sent: %s\n", text)
-}
 
-func runPurge() {
-	st, err := store.New("tavrn.db")
+	config := &ssh.ClientConfig{
+		User:            os.Getenv("USER"),
+		Auth:            authMethods,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         10 * time.Second,
+	}
+
+	conn, err := ssh.Dial("tcp", addr, config)
 	if err != nil {
-		log.Fatalf("store: %v", err)
+		log.Fatalf("connect: %v", err)
 	}
-	defer st.Close()
+	defer conn.Close()
 
-	fmt.Println("Purging all data (users, chat, gallery, visitors)...")
-	fmt.Println("Bans will be preserved.")
-	if err := st.PurgeAll(); err != nil {
-		log.Fatalf("purge failed: %v", err)
-	}
-	fmt.Println("Done. All data purged.")
-}
-
-func runServer() {
-	st, err := store.New("tavrn.db")
+	session, err := conn.NewSession()
 	if err != nil {
-		log.Fatalf("store: %v", err)
+		log.Fatalf("session: %v", err)
 	}
-	defer st.Close()
+	defer session.Close()
 
-	h := hub.New()
-	go h.Run()
-
-	if _, err := os.Stat(".ssh"); os.IsNotExist(err) {
-		os.MkdirAll(".ssh", 0700)
-	}
-
-	var backends []jukebox.MusicBackend
-	if jamendoID := os.Getenv("JAMENDO_CLIENT_ID"); jamendoID != "" {
-		backends = append(backends, jukebox.NewJamendo(jamendoID))
-		log.Printf("Jamendo backend enabled")
-	}
-	jukeboxEngine := jukebox.NewEngine(backends)
-	streamer := jukebox.NewStreamer()
-	jukeboxEngine.SetOnTrackChange(func(track jukebox.Track) {
-		streamer.StreamTrack(track)
-	})
-
-	port := getPort()
-	srv, err := server.New(server.Config{
-		Host:          "0.0.0.0",
-		Port:          port,
-		HostKeyPath:   ".ssh/id_ed25519",
-		Store:         st,
-		Hub:           h,
-		JukeboxEngine: jukeboxEngine,
-		Streamer:      streamer,
-	})
+	// Raw terminal
+	fd := int(os.Stdin.Fd())
+	oldState, err := term.MakeRaw(fd)
 	if err != nil {
-		log.Fatalf("server: %v", err)
+		log.Fatalf("terminal: %v", err)
 	}
+	defer term.Restore(fd, oldState)
+
+	w, h, _ := term.GetSize(fd)
+	if err := session.RequestPty("xterm-256color", h, w, ssh.TerminalModes{
+		ssh.ECHO:          0,
+		ssh.TTY_OP_ISPEED: 14400,
+		ssh.TTY_OP_OSPEED: 14400,
+	}); err != nil {
+		term.Restore(fd, oldState)
+		log.Fatalf("pty: %v", err)
+	}
+
+	session.Stdin = os.Stdin
+	session.Stdout = os.Stdout
+	session.Stderr = os.Stderr
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go startPurgeScheduler(st, h)
-	go startGalleryCleanup(st, h)
-	go watchBannerFile(h)
+	if !noAudio {
+		go startAudioChannel(ctx, conn)
+	}
 
-	done := make(chan os.Signal, 1)
-	signal.Notify(done, os.Interrupt, syscall.SIGTERM)
+	go handleResize(fd, session)
 
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		if err := srv.Start(ctx); err != nil {
-			log.Fatalf("server: %v", err)
+		<-sigs
+		cancel()
+		killMPV()
+		session.Close()
+	}()
+
+	if err := session.Shell(); err != nil {
+		term.Restore(fd, oldState)
+		log.Fatalf("shell: %v", err)
+	}
+
+	session.Wait()
+	cancel()
+	killMPV()
+}
+
+func killMPV() {
+	activeMPVMu.Lock()
+	p := activeMPV
+	activeMPV = nil
+	activeMPVMu.Unlock()
+	if p != nil {
+		// Kill the entire process group
+		syscall.Kill(-p.Pid, syscall.SIGKILL)
+		p.Kill()
+	}
+}
+
+// startAudioChannel opens the "tavrn-audio" SSH channel and plays audio via mpv.
+func startAudioChannel(ctx context.Context, conn *ssh.Client) {
+	ch, reqs, err := conn.OpenChannel("tavrn-audio", nil)
+	if err != nil {
+		return
+	}
+	go ssh.DiscardRequests(reqs)
+	defer ch.Close()
+
+	br := bufio.NewReaderSize(ch, 256*1024)
+
+	for {
+		if ctx.Err() != nil {
+			return
+		}
+
+		_, err := jukebox.DecodeTrackHeader(br)
+		if err != nil {
+			return
+		}
+
+		audioLen, err := jukebox.DecodeAudioLength(br)
+		if err != nil {
+			return
+		}
+
+		playTrack(ctx, br, int64(audioLen))
+	}
+}
+
+func playTrack(ctx context.Context, r io.Reader, audioLen int64) {
+	// Use io.Pipe so we control the flow of data to mpv.
+	// This way mpv only has what we've written — killing the pipe stops it.
+	pr, pw := io.Pipe()
+
+	cmd := exec.Command("mpv",
+		"--no-video",
+		"--no-terminal",
+		"--no-cache",
+		"-",
+	)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Stdin = pr
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+
+	if err := cmd.Start(); err != nil {
+		pw.Close()
+		pr.Close()
+		return
+	}
+
+	activeMPVMu.Lock()
+	activeMPV = cmd.Process
+	activeMPVMu.Unlock()
+
+	// Feed audio data to mpv in chunks, watching for context cancellation
+	feedDone := make(chan struct{})
+	go func() {
+		defer pw.Close()
+		defer close(feedDone)
+
+		limited := io.LimitReader(r, audioLen)
+		buf := make([]byte, 8192)
+		for {
+			if ctx.Err() != nil {
+				return
+			}
+			n, err := limited.Read(buf)
+			if n > 0 {
+				if _, werr := pw.Write(buf[:n]); werr != nil {
+					return
+				}
+			}
+			if err != nil {
+				return
+			}
 		}
 	}()
 
-	log.Printf("tavrn.sh is open. ssh localhost -p %d", port)
+	// Wait for mpv to finish or context to cancel
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
 
-	<-done
-	log.Println("tavern closing...")
-	cancel()
-	h.BroadcastAll(session.Msg{
-		Type: session.MsgSystem,
-		Text: "the tavern is closing...",
-	})
-	srv.Shutdown(5 * time.Second)
-	log.Println("goodbye.")
+	select {
+	case <-done:
+		// Track finished playing
+	case <-ctx.Done():
+		// Session ended — kill mpv
+		pw.Close()
+		killMPV()
+		<-done
+		return
+	}
+
+	<-feedDone
+
+	activeMPVMu.Lock()
+	activeMPV = nil
+	activeMPVMu.Unlock()
 }
 
-func runUpdate(restartServer bool) error {
-	if os.Geteuid() == 0 {
-		return fmt.Errorf("run tavrn --update as the tavrn user, not root")
-	}
-
-	repoDir, err := executableRepoDir()
-	if err != nil {
-		return err
-	}
-
-	env := updateEnv()
-	if err := ensureCleanTrackedFiles(repoDir, env); err != nil {
-		return err
-	}
-
-	fmt.Println("Fetching latest main...")
-	if err := runCommand(repoDir, env, "git", "fetch", "origin", "main"); err != nil {
-		return err
-	}
-
-	fmt.Println("Pulling latest main...")
-	if err := runCommand(repoDir, env, "git", "pull", "--ff-only", "origin", "main"); err != nil {
-		return err
-	}
-
-	fmt.Println("Building tavrn-client...")
-	if err := runCommand(repoDir, env, "go", "build", "-o", "tavrn-client", "./cmd/tavrn-client"); err != nil {
-		return err
-	}
-	if restartServer {
-		fmt.Println("Building tavrn...")
-		if err := runCommand(repoDir, env, "go", "build", "-o", "tavrn", "./cmd/tavrn"); err != nil {
-			return err
+func handleResize(fd int, session *ssh.Session) {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGWINCH)
+	for range sigs {
+		w, h, err := term.GetSize(fd)
+		if err == nil {
+			session.WindowChange(h, w)
 		}
+	}
+}
 
-		fmt.Println("Finalizing update...")
-		if err := runCommand(repoDir, env, "sudo", "/usr/local/sbin/tavrn-finalize-update"); err != nil {
-			return err
-		}
-	} else {
-		fmt.Println("Refreshing client binary symlink...")
-		if err := runCommand(repoDir, env, "sudo", "/usr/local/sbin/tavrn-refresh-client"); err != nil {
-			return err
+func sshAuthMethods() []ssh.AuthMethod {
+	var methods []ssh.AuthMethod
+	var agentClient agent.ExtendedAgent
+
+	// Connect to SSH agent if available.
+	if sock := os.Getenv("SSH_AUTH_SOCK"); sock != "" {
+		conn, err := net.Dial("unix", sock)
+		if err == nil {
+			agentClient = agent.NewClient(conn)
 		}
 	}
 
-	rev, err := commandOutput(repoDir, env, "git", "rev-parse", "--short", "HEAD")
-	if err != nil {
-		return err
+	// Load key files from disk and add to agent automatically.
+	home, _ := os.UserHomeDir()
+	keyFiles := []string{
+		filepath.Join(home, ".ssh", "id_ed25519"),
+		filepath.Join(home, ".ssh", "id_rsa"),
+		filepath.Join(home, ".ssh", "id_ecdsa"),
 	}
-
-	if restartServer {
-		fmt.Printf("Server update complete. Running commit %s\n", rev)
-	} else {
-		fmt.Printf("Client update complete. Running commit %s\n", rev)
-	}
-	return nil
-}
-
-func executableRepoDir() (string, error) {
-	exe, err := os.Executable()
-	if err != nil {
-		return "", fmt.Errorf("locate executable: %w", err)
-	}
-	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
-		exe = resolved
-	}
-	return filepath.Dir(exe), nil
-}
-
-func ensureCleanTrackedFiles(repoDir string, env []string) error {
-	out, err := commandOutput(repoDir, env, "git", "status", "--porcelain", "--untracked-files=no")
-	if err != nil {
-		return err
-	}
-	if strings.TrimSpace(out) != "" {
-		return fmt.Errorf("repo has local tracked changes; commit or revert them before updating")
-	}
-	return nil
-}
-
-func updateEnv() []string {
-	pathParts := []string{"/usr/local/go/bin"}
-	if current := os.Getenv("PATH"); current != "" {
-		pathParts = append(pathParts, current)
-	}
-	mergedPath := "PATH=" + strings.Join(pathParts, ":")
-	base := os.Environ()
-	env := make([]string, 0, len(base)+1)
-	replaced := false
-	for _, kv := range base {
-		if strings.HasPrefix(kv, "PATH=") {
-			if !replaced {
-				env = append(env, mergedPath)
-				replaced = true
-			}
+	for _, path := range keyFiles {
+		data, err := os.ReadFile(path)
+		if err != nil {
 			continue
 		}
-		env = append(env, kv)
-	}
-	if !replaced {
-		env = append(env, mergedPath)
-	}
-	return env
-}
-
-func runCommand(dir string, env []string, name string, args ...string) error {
-	resolved, err := resolveCommand(name, env)
-	if err != nil {
-		return err
-	}
-	cmd := exec.Command(resolved, args...)
-	cmd.Dir = dir
-	cmd.Env = env
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
-}
-
-func commandOutput(dir string, env []string, name string, args ...string) (string, error) {
-	resolved, err := resolveCommand(name, env)
-	if err != nil {
-		return "", err
-	}
-	cmd := exec.Command(resolved, args...)
-	cmd.Dir = dir
-	cmd.Env = env
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			return "", fmt.Errorf("%s %s: %s", name, strings.Join(args, " "), strings.TrimSpace(stderr.String()))
-		}
-		return "", fmt.Errorf("%s %s: %w", name, strings.Join(args, " "), err)
-	}
-	return strings.TrimSpace(stdout.String()), nil
-}
-
-func resolveCommand(name string, env []string) (string, error) {
-	if strings.Contains(name, "/") {
-		return name, nil
-	}
-
-	pathEnv := os.Getenv("PATH")
-	for i := len(env) - 1; i >= 0; i-- {
-		kv := env[i]
-		if strings.HasPrefix(kv, "PATH=") {
-			pathEnv = strings.TrimPrefix(kv, "PATH=")
-			break
-		}
-	}
-
-	for _, dir := range filepath.SplitList(pathEnv) {
-		if dir == "" {
-			dir = "."
-		}
-		candidate := filepath.Join(dir, name)
-		info, err := os.Stat(candidate)
-		if err != nil || info.IsDir() {
-			continue
-		}
-		if info.Mode()&0111 != 0 {
-			return candidate, nil
-		}
-	}
-
-	return "", fmt.Errorf("exec: %q not found in PATH", name)
-}
-
-func startPurgeScheduler(st *store.Store, h *hub.Hub) {
-	for {
-		now := time.Now().UTC()
-		daysUntilSunday := (7 - int(now.Weekday())) % 7
-		if daysUntilSunday == 0 && (now.Hour() > 23 || (now.Hour() == 23 && now.Minute() >= 59)) {
-			daysUntilSunday = 7
-		}
-		next := time.Date(now.Year(), now.Month(), now.Day()+daysUntilSunday, 23, 59, 0, 0, time.UTC)
-		timer := time.NewTimer(time.Until(next))
-		<-timer.C
-
-		log.Println("Weekly purge starting...")
-		h.BroadcastAll(session.Msg{
-			Type: session.MsgSystem,
-			Text: "The tavern has been swept clean.",
-		})
-		st.PurgeAll()
-		log.Println("Weekly purge complete")
-	}
-}
-
-func startGalleryCleanup(st *store.Store, h *hub.Hub) {
-	for {
-		now := time.Now().UTC()
-		next := now.Truncate(time.Hour).Add(time.Hour)
-		timer := time.NewTimer(time.Until(next))
-		<-timer.C
-
-		log.Println("Gallery cleanup starting...")
-		st.ClearGallery()
-		h.Broadcast("gallery", session.Msg{
-			Type: session.MsgSystem,
-			Text: "The gallery board has been wiped clean.",
-			Room: "gallery",
-		})
-		log.Println("Gallery cleanup complete")
-	}
-}
-
-func watchBannerFile(h *hub.Hub) {
-	for {
-		time.Sleep(1 * time.Second)
-
-		data, err := os.ReadFile(bannerFile)
+		key, err := ssh.ParseRawPrivateKey(data)
 		if err != nil {
 			continue
 		}
 
-		text := strings.TrimSpace(string(data))
-		if text == "" {
-			continue
+		if agentClient != nil {
+			agentClient.Add(agent.AddedKey{PrivateKey: key})
 		}
 
-		os.Remove(bannerFile)
-
-		log.Printf("Broadcasting banner: %s", text)
-		h.BroadcastAll(session.Msg{
-			Type: session.MsgBanner,
-			Text: text,
-		})
+		signer, err := ssh.NewSignerFromKey(key)
+		if err != nil {
+			continue
+		}
+		methods = append(methods, ssh.PublicKeys(signer))
 	}
+
+	if agentClient != nil {
+		methods = append(methods, ssh.PublicKeysCallback(agentClient.Signers))
+	}
+
+	return methods
+}
+
+func runUpdate() error {
+	if _, err := exec.LookPath("go"); err != nil {
+		return fmt.Errorf("go is required to update tavrn via --update")
+	}
+
+	fmt.Println("Updating tavrn...")
+	cmd := exec.Command("go", "install", "tavrn.sh/cmd/tavrn@latest")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = os.Environ()
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	fmt.Println("Client update complete.")
+	return nil
 }

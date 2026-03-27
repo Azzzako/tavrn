@@ -4,10 +4,10 @@
 
 ```bash
 # Terminal 1 — server
-JAMENDO_CLIENT_ID=your_key go run ./cmd/tavrn
+JAMENDO_CLIENT_ID=your_key go run ./cmd/tavrn-admin
 
 # Terminal 2 — client with audio
-go run ./cmd/tavrn-client --dev
+go run ./cmd/tavrn --dev
 
 # Or bare SSH without audio
 ssh localhost -p 2222
@@ -36,8 +36,8 @@ feature/* ──PR──> dev ──merge──> main (deploy)
 
 ```
 cmd/
-  tavrn/           Server binary (SSH server, jukebox engine)
-  tavrn-client/    Client binary (SSH client + mpv audio)
+  tavrn/           Client binary (SSH client + mpv audio)
+  tavrn-admin/     Server binary (SSH server, jukebox engine)
 internal/
   chat/            Message parsing and storage types
   hub/             Connection management, broadcasting
@@ -76,10 +76,10 @@ ui/
 
 ```bash
 # Send banner to all connected users (server-side only)
-./tavrn --message "Maintenance in 10 minutes"
+./tavrn-admin --message "Maintenance in 10 minutes"
 
 # Purge all data
-./tavrn purge
+./tavrn-admin purge
 ```
 
 ## Tests
