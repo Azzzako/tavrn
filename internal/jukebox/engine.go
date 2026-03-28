@@ -90,6 +90,13 @@ func (e *Engine) UpdateDuration(seconds int) {
 	}
 }
 
+// RetryTrack immediately picks a new track (e.g. when download fails).
+// This avoids the 1-second tick delay and doesn't flash bad tracks in the TUI.
+func (e *Engine) RetryTrack() {
+	e.mu.Lock()
+	e.playNext()
+}
+
 func (e *Engine) Run(ctx context.Context) {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()

@@ -210,6 +210,8 @@ func killMPV() {
 }
 
 // startAudioChannel opens the "tavrn-audio" SSH channel and plays audio via mpv.
+// Each track is played in a cancellable goroutine so that when a new track arrives
+// (e.g. genre switch), the current mpv is killed immediately.
 func startAudioChannel(ctx context.Context, conn *ssh.Client) {
 	ch, reqs, err := conn.OpenChannel("tavrn-audio", nil)
 	if err != nil {
@@ -219,6 +221,9 @@ func startAudioChannel(ctx context.Context, conn *ssh.Client) {
 	defer ch.Close()
 
 	br := bufio.NewReaderSize(ch, 256*1024)
+
+	var trackCancel context.CancelFunc
+	var trackDone chan struct{}
 
 	for {
 		if ctx.Err() != nil {
@@ -235,13 +240,30 @@ func startAudioChannel(ctx context.Context, conn *ssh.Client) {
 			return
 		}
 
-		playTrack(ctx, br, int64(audioLen))
+		// Kill current track if still playing
+		if trackCancel != nil {
+			trackCancel()
+			<-trackDone
+		}
+
+		// Read all audio data upfront so the reader is free for the next header
+		audioData := make([]byte, audioLen)
+		if _, err := io.ReadFull(br, audioData); err != nil {
+			return
+		}
+
+		trackCtx, cancel := context.WithCancel(ctx)
+		trackCancel = cancel
+		trackDone = make(chan struct{})
+
+		go func(data []byte, done chan struct{}) {
+			defer close(done)
+			playTrack(trackCtx, data)
+		}(audioData, trackDone)
 	}
 }
 
-func playTrack(ctx context.Context, r io.Reader, audioLen int64) {
-	// Use io.Pipe so we control the flow of data to mpv.
-	// This way mpv only has what we've written — killing the pipe stops it.
+func playTrack(ctx context.Context, audioData []byte) {
 	pr, pw := io.Pipe()
 
 	cmd := exec.Command("mpv",
@@ -265,27 +287,26 @@ func playTrack(ctx context.Context, r io.Reader, audioLen int64) {
 	activeMPV = cmd.Process
 	activeMPVMu.Unlock()
 
-	// Feed audio data to mpv in chunks, watching for context cancellation
+	// Feed audio data to mpv
 	feedDone := make(chan struct{})
 	go func() {
 		defer pw.Close()
 		defer close(feedDone)
 
-		limited := io.LimitReader(r, audioLen)
-		buf := make([]byte, 8192)
-		for {
+		offset := 0
+		for offset < len(audioData) {
 			if ctx.Err() != nil {
 				return
 			}
-			n, err := limited.Read(buf)
-			if n > 0 {
-				if _, werr := pw.Write(buf[:n]); werr != nil {
-					return
-				}
+			end := offset + 8192
+			if end > len(audioData) {
+				end = len(audioData)
 			}
+			n, err := pw.Write(audioData[offset:end])
 			if err != nil {
 				return
 			}
+			offset += n
 		}
 	}()
 
@@ -295,13 +316,12 @@ func playTrack(ctx context.Context, r io.Reader, audioLen int64) {
 
 	select {
 	case <-done:
-		// Track finished playing
+		// Track finished naturally
 	case <-ctx.Done():
-		// Session ended — kill mpv
+		// New track arrived or session ended — kill mpv
 		pw.Close()
 		killMPV()
 		<-done
-		return
 	}
 
 	<-feedDone

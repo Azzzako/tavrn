@@ -152,8 +152,8 @@ func runServer() {
 		jukeboxEngine.UpdateDuration(seconds)
 	})
 	streamer.SetOnError(func() {
-		// Download failed — reset engine so next tick picks a new track
-		jukeboxEngine.UpdateDuration(1) // set tiny duration so tick triggers auto-next
+		// Download failed — immediately retry with a new track
+		jukeboxEngine.RetryTrack()
 	})
 	jukeboxEngine.SetOnTrackChange(func(track jukebox.Track) {
 		streamer.StreamTrack(track)
