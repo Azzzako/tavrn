@@ -260,9 +260,10 @@ func (c ChatView) Update(msg tea.Msg) (ChatView, tea.Cmd) {
 
 	// Route mouse wheel to viewport
 	if m, ok := msg.(tea.MouseWheelMsg); ok {
-		if m.Button == tea.MouseWheelUp {
+		switch m.Button {
+		case tea.MouseWheelUp:
 			c.viewport.ScrollUp(3)
-		} else if m.Button == tea.MouseWheelDown {
+		case tea.MouseWheelDown:
 			c.viewport.ScrollDown(3)
 		}
 		return c, nil
