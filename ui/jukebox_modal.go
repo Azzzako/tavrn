@@ -142,16 +142,16 @@ func (m JukeboxModal) updateSearch(msg tea.KeyPressMsg) (JukeboxModal, tea.Cmd) 
 			if m.searchCursor < 0 {
 				m.searchCursor = len(m.searchResults) - 1
 			}
+			return m, nil
 		}
-		return m, nil
 	case "down", "j":
 		if len(m.searchResults) > 0 {
 			m.searchCursor++
 			if m.searchCursor >= len(m.searchResults) {
 				m.searchCursor = 0
 			}
+			return m, nil
 		}
-		return m, nil
 	case "ctrl+s":
 		query := strings.TrimSpace(m.searchInput.Value())
 		if query != "" && !m.searching {
