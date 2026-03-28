@@ -127,10 +127,6 @@ func runServer() {
 	}
 
 	var backends []jukebox.MusicBackend
-	if jamendoID := os.Getenv("JAMENDO_CLIENT_ID"); jamendoID != "" {
-		backends = append(backends, jukebox.NewJamendo(jamendoID))
-		log.Printf("Jamendo backend enabled")
-	}
 	lofi := jukebox.NewLofi()
 	backends = append(backends, lofi)
 	log.Printf("Lofi backend enabled (%d tracks)", len(lofi.Tracks()))

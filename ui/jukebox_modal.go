@@ -295,14 +295,7 @@ func (m JukeboxModal) viewNowPlaying(w int) string {
 
 	// Confirmation banner
 	if m.lastAdded != "" {
-		added := m.lastAdded
-		if lipgloss.Width(added) > w-10 {
-			runes := []rune(added)
-			for lipgloss.Width(string(runes)) > w-13 && len(runes) > 0 {
-				runes = runes[:len(runes)-1]
-			}
-			added = string(runes) + "..."
-		}
+		added := truncateWidth(m.lastAdded, w-10)
 		b.WriteString(lipgloss.NewStyle().Foreground(ColorGreen).Render(
 			fmt.Sprintf("  ✓ Added \"%s\"", added)))
 		b.WriteString("\n\n")
@@ -316,16 +309,8 @@ func (m JukeboxModal) viewNowPlaying(w int) string {
 	}
 
 	// Now playing
-	nowTitle := state.Current.Title
-	maxNowTitle := w - 4
-	if lipgloss.Width(nowTitle) > maxNowTitle {
-		runes := []rune(nowTitle)
-		for lipgloss.Width(string(runes)) > maxNowTitle-3 && len(runes) > 0 {
-			runes = runes[:len(runes)-1]
-		}
-		nowTitle = string(runes) + "..."
-	}
-	title := lipgloss.NewStyle().Foreground(ColorHighlight).Bold(true).Render(nowTitle)
+	title := lipgloss.NewStyle().Foreground(ColorHighlight).Bold(true).Render(
+		truncateWidth(state.Current.Title, w-4))
 	artist := lipgloss.NewStyle().Foreground(ColorSand).Render(state.Current.Artist)
 	source := lipgloss.NewStyle().Foreground(ColorDimmer).Render("[" + state.Current.Source + "]")
 
@@ -365,10 +350,7 @@ func (m JukeboxModal) viewNowPlaying(w int) string {
 		for i := 0; i < limit; i++ {
 			req := state.Requests[i]
 			num := lipgloss.NewStyle().Foreground(ColorDim).Render(fmt.Sprintf("  %d.", i+1))
-			reqTitle := req.Track.Title
-			if len(reqTitle) > w-12 {
-				reqTitle = reqTitle[:w-15] + "..."
-			}
+			reqTitle := truncateWidth(req.Track.Title, w-16)
 			name := lipgloss.NewStyle().Foreground(ColorSand).Render(reqTitle)
 			count := lipgloss.NewStyle().Foreground(ColorDimmer).Render(
 				fmt.Sprintf("  %d req", req.Count))
@@ -441,7 +423,7 @@ func (m JukeboxModal) viewSearch(w int) string {
 			end = total
 		}
 
-		maxTitle := w - 16 // room for " ▸ N. " + " [source]"
+		maxTitle := w - 16
 		if maxTitle < 12 {
 			maxTitle = 12
 		}
@@ -450,14 +432,7 @@ func (m JukeboxModal) viewSearch(w int) string {
 			track := m.searchResults[i]
 			isSelected := i == m.searchCursor
 			num := fmt.Sprintf("%d.", i+1)
-			trackTitle := track.Title
-			if lipgloss.Width(trackTitle) > maxTitle {
-				runes := []rune(trackTitle)
-				for lipgloss.Width(string(runes)) > maxTitle-3 && len(runes) > 0 {
-					runes = runes[:len(runes)-1]
-				}
-				trackTitle = string(runes) + "..."
-			}
+			trackTitle := truncateWidth(track.Title, maxTitle)
 			trackSource := "[" + track.Source + "]"
 
 			if isSelected {
@@ -551,14 +526,11 @@ func (m JukeboxModal) viewVote(w int) string {
 		isVoted := votedFor == req.Track.ID
 
 		// Title (truncate)
-		title := req.Track.Title
 		maxTitle := w - 18
 		if maxTitle < 12 {
 			maxTitle = 12
 		}
-		if len(title) > maxTitle {
-			title = title[:maxTitle-3] + "..."
-		}
+		title := truncateWidth(req.Track.Title, maxTitle)
 
 		// Vote bar
 		barLen := 0

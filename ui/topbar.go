@@ -49,9 +49,14 @@ func (t TopBar) nowPlayingView() string {
 	}
 
 	note := lipgloss.NewStyle().Foreground(ColorMusic).Render("♪")
-	title := lipgloss.NewStyle().Foreground(ColorHighlight).Bold(true).Render(t.NowTitle)
+	maxTitleW := t.Width/3 - 10
+	if maxTitleW < 15 {
+		maxTitleW = 15
+	}
+	nowTitle := truncateWidth(t.NowTitle, maxTitleW)
+	title := lipgloss.NewStyle().Foreground(ColorHighlight).Bold(true).Render(nowTitle)
 	dot := lipgloss.NewStyle().Foreground(ColorDimmer).Render(" · ")
-	artist := lipgloss.NewStyle().Foreground(ColorDim).Render(t.NowArtist)
+	artist := lipgloss.NewStyle().Foreground(ColorDim).Render(truncateWidth(t.NowArtist, 20))
 	wave := t.waveView()
 
 	pos := formatDuration(t.NowPosition)

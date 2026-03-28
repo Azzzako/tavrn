@@ -132,10 +132,7 @@ func (o OnlinePanel) View() string {
 
 		if o.NowTitle != "" {
 			note := lipgloss.NewStyle().Foreground(ColorMusic).Render("♪")
-			title := o.NowTitle
-			if len(title) > o.Width-6 {
-				title = title[:o.Width-9] + "..."
-			}
+			title := truncateWidth(o.NowTitle, o.Width-6)
 			nowStyle := lipgloss.NewStyle().Foreground(ColorHighlight).Render(title)
 			fmt.Fprintf(&b, "%s %s\n", note, nowStyle)
 		}
@@ -150,10 +147,7 @@ func (o OnlinePanel) View() string {
 			}
 			for i := 0; i < limit; i++ {
 				req := o.Queue[i]
-				title := req.Track.Title
-				if len(title) > o.Width-8 {
-					title = title[:o.Width-11] + "..."
-				}
+				title := truncateWidth(req.Track.Title, o.Width-8)
 				num := dimmer.Render(fmt.Sprintf("%d.", i+1))
 				name := dim.Render(title)
 				count := dimmer.Render(fmt.Sprintf(" %d", req.Count))
