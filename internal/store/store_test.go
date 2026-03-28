@@ -158,4 +158,65 @@ func TestPurgeAll(t *testing.T) {
 	if !banned {
 		t.Error("ban should survive purge")
 	}
+
+	// Rooms should survive purge
+	rooms := s.AllRooms()
+	if len(rooms) < 3 {
+		t.Errorf("rooms should survive purge, got %d", len(rooms))
+	}
+}
+
+func TestDefaultRoomsSeeded(t *testing.T) {
+	s := tempStore(t)
+	rooms := s.AllRooms()
+	expected := map[string]bool{"lounge": true, "gallery": true, "suggestions": true}
+	for _, r := range rooms {
+		if !expected[r] {
+			t.Errorf("unexpected room: %q", r)
+		}
+	}
+	if len(rooms) < 3 {
+		t.Errorf("expected at least 3 rooms, got %d", len(rooms))
+	}
+}
+
+func TestAddRoom(t *testing.T) {
+	s := tempStore(t)
+	if err := s.AddRoom("arena"); err != nil {
+		t.Fatalf("AddRoom: %v", err)
+	}
+	rooms := s.AllRooms()
+	found := false
+	for _, r := range rooms {
+		if r == "arena" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("arena not found in rooms")
+	}
+}
+
+func TestAddRoomDuplicate(t *testing.T) {
+	s := tempStore(t)
+	s.AddRoom("arena")
+	err := s.AddRoom("arena")
+	if err != nil {
+		t.Errorf("duplicate AddRoom should not error (INSERT OR IGNORE), got: %v", err)
+	}
+}
+
+func TestIsRoom(t *testing.T) {
+	s := tempStore(t)
+	if !s.IsRoom("lounge") {
+		t.Error("lounge should be a valid room")
+	}
+	if s.IsRoom("nonexistent") {
+		t.Error("nonexistent should not be a valid room")
+	}
+	s.AddRoom("arena")
+	if !s.IsRoom("arena") {
+		t.Error("arena should be valid after AddRoom")
+	}
 }

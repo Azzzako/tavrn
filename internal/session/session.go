@@ -21,6 +21,7 @@ const (
 	MsgNoteDelete
 	MsgJukeboxUpdate
 	MsgBanner
+	MsgRoomAdded
 )
 
 // NoteData carries sticky note info through the hub.

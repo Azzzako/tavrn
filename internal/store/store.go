@@ -80,9 +80,22 @@ func (s *Store) migrate() error {
 		color_index INTEGER DEFAULT 0,
 		created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
+	CREATE TABLE IF NOT EXISTS rooms (
+		name       TEXT PRIMARY KEY,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
 	`
-	_, err := s.db.Exec(schema)
-	return err
+	if _, err := s.db.Exec(schema); err != nil {
+		return err
+	}
+	return s.seedRooms()
+}
+
+func (s *Store) seedRooms() error {
+	for _, name := range []string{"lounge", "gallery", "suggestions"} {
+		s.db.Exec(`INSERT OR IGNORE INTO rooms (name) VALUES (?)`, name)
+	}
+	return nil
 }
 
 func (s *Store) UpsertUser(fingerprint, nickname string) error {
@@ -308,6 +321,44 @@ func (s *Store) ClearGallery() error {
 	defer s.mu.Unlock()
 	_, err := s.db.Exec(`DELETE FROM gallery_notes`)
 	return err
+}
+
+// ── Rooms ──
+
+func (s *Store) AddRoom(name string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_, err := s.db.Exec(`INSERT OR IGNORE INTO rooms (name) VALUES (?)`, name)
+	return err
+}
+
+func (s *Store) AllRooms() []string {
+	rows, err := s.db.Query(`SELECT name FROM rooms ORDER BY created_at ASC`)
+	if err != nil {
+		return []string{"lounge", "gallery", "suggestions"}
+	}
+	defer rows.Close()
+	var rooms []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			continue
+		}
+		rooms = append(rooms, name)
+	}
+	if len(rooms) == 0 {
+		return []string{"lounge", "gallery", "suggestions"}
+	}
+	return rooms
+}
+
+func (s *Store) IsRoom(name string) bool {
+	row := s.db.QueryRow(`SELECT COUNT(*) FROM rooms WHERE name = ?`, name)
+	var count int
+	if err := row.Scan(&count); err != nil {
+		return false
+	}
+	return count > 0
 }
 
 func (s *Store) PurgeAll() error {

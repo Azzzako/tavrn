@@ -22,6 +22,7 @@ import (
 )
 
 const bannerFile = ".banner"
+const addRoomFile = ".addroom"
 
 func main() {
 	if len(os.Args) > 1 {
@@ -35,6 +36,13 @@ func main() {
 				os.Exit(1)
 			}
 			runMessage(os.Args[2])
+			return
+		case "--add-room":
+			if len(os.Args) < 3 {
+				fmt.Println("Usage: tavrn --add-room \"room_name\"")
+				os.Exit(1)
+			}
+			runAddRoom(os.Args[2])
 			return
 		case "--update":
 			if err := runUpdate(true); err != nil {
@@ -51,6 +59,7 @@ func main() {
 			fmt.Println("  tavrn                       Start the SSH server")
 			fmt.Println("  tavrn purge                 Purge all data")
 			fmt.Println("  tavrn --message \"text\"      Send banner to all connected users")
+			fmt.Println("  tavrn --add-room \"name\"     Add a new room (live, no restart)")
 			fmt.Println("  tavrn --update-client       Pull main and rebuild only the client binary")
 			fmt.Println("  tavrn --update              Pull main, rebuild both binaries, and restart the service")
 			return
@@ -74,6 +83,18 @@ func runMessage(text string) {
 		log.Fatalf("failed to write banner: %v", err)
 	}
 	fmt.Printf("Banner sent: %s\n", text)
+}
+
+func runAddRoom(name string) {
+	name = strings.ToLower(strings.TrimSpace(name))
+	if name == "" {
+		fmt.Println("Room name cannot be empty.")
+		os.Exit(1)
+	}
+	if err := os.WriteFile(addRoomFile, []byte(name), 0600); err != nil {
+		log.Fatalf("failed to write addroom file: %v", err)
+	}
+	fmt.Printf("Room queued: #%s (will appear when server picks it up)\n", name)
 }
 
 func runPurge() {
@@ -136,6 +157,7 @@ func runServer() {
 	go startPurgeScheduler(st, h)
 	go startGalleryCleanup(st, h)
 	go watchBannerFile(h)
+	go watchAddRoomFile(st, h)
 
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGTERM)
@@ -389,6 +411,40 @@ func watchBannerFile(h *hub.Hub) {
 		h.BroadcastAll(session.Msg{
 			Type: session.MsgBanner,
 			Text: text,
+		})
+	}
+}
+
+func watchAddRoomFile(st *store.Store, h *hub.Hub) {
+	for {
+		time.Sleep(1 * time.Second)
+
+		data, err := os.ReadFile(addRoomFile)
+		if err != nil {
+			continue
+		}
+
+		name := strings.ToLower(strings.TrimSpace(string(data)))
+		if name == "" {
+			continue
+		}
+
+		os.Remove(addRoomFile)
+
+		if st.IsRoom(name) {
+			log.Printf("Room #%s already exists", name)
+			continue
+		}
+
+		if err := st.AddRoom(name); err != nil {
+			log.Printf("Failed to add room: %v", err)
+			continue
+		}
+
+		log.Printf("Room added: #%s", name)
+		h.BroadcastAll(session.Msg{
+			Type: session.MsgRoomAdded,
+			Text: name,
 		})
 	}
 }

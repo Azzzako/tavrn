@@ -14,7 +14,6 @@ import (
 	"tavrn.sh/internal/chat"
 	"tavrn.sh/internal/hub"
 	"tavrn.sh/internal/jukebox"
-	"tavrn.sh/internal/room"
 	"tavrn.sh/internal/sanitize"
 	"tavrn.sh/internal/session"
 	"tavrn.sh/internal/store"
@@ -289,12 +288,13 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.nickModal = NewNickModal(a.session.Nickname)
 			return a, nil
 		case "f3":
+			allRooms := a.store.AllRooms()
 			var counts []int
-			for _, rName := range room.All {
+			for _, rName := range allRooms {
 				counts = append(counts, len(a.hub.Sessions(rName)))
 			}
 			a.modal = ModalJoinRoom
-			a.joinRoomModal = NewJoinRoomModal(room.All, counts, a.session.Room)
+			a.joinRoomModal = NewJoinRoomModal(allRooms, counts, a.session.Room)
 			return a, nil
 		case "f4":
 			a.modal = ModalJukebox
@@ -325,12 +325,13 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				a.nickModal = NewNickModal(a.session.Nickname)
 				return a, nil
 			case "j":
+				allRooms := a.store.AllRooms()
 				var counts []int
-				for _, rName := range room.All {
+				for _, rName := range allRooms {
 					counts = append(counts, len(a.hub.Sessions(rName)))
 				}
 				a.modal = ModalJoinRoom
-				a.joinRoomModal = NewJoinRoomModal(room.All, counts, a.session.Room)
+				a.joinRoomModal = NewJoinRoomModal(allRooms, counts, a.session.Room)
 				return a, nil
 			case "h":
 				a.modal = ModalHelp
@@ -536,6 +537,9 @@ func (a *App) handleHubMsg(msg session.Msg) {
 		if msg.Note != nil {
 			a.gallery.RemoveNote(msg.Note.ID)
 		}
+	case session.MsgRoomAdded:
+		a.chat.AddMessage(chat.NewSystemMessage(a.session.Room,
+			fmt.Sprintf("New room available: #%s", msg.Text)))
 	}
 }
 
@@ -659,7 +663,7 @@ func (a App) View() tea.View {
 	a.online.Users = onlineNames
 	a.rooms.CurrentRoom = a.session.Room
 	var roomInfos []RoomInfo
-	for _, rName := range room.All {
+	for _, rName := range a.store.AllRooms() {
 		roomInfos = append(roomInfos, RoomInfo{
 			Name:  rName,
 			Count: len(a.hub.Sessions(rName)),

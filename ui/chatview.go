@@ -177,20 +177,25 @@ func formatTimestamp(t time.Time, now time.Time) string {
 }
 
 func wordWrap(text string, width int) []string {
-	if width <= 0 || len(text) <= width {
+	if width <= 0 || lipgloss.Width(text) <= width {
 		return []string{text}
 	}
 	var lines []string
 	words := strings.Fields(text)
 	current := ""
+	currentW := 0
 	for _, word := range words {
+		wordW := lipgloss.Width(word)
 		if current == "" {
 			current = word
-		} else if len(current)+1+len(word) <= width {
+			currentW = wordW
+		} else if currentW+1+wordW <= width {
 			current += " " + word
+			currentW += 1 + wordW
 		} else {
 			lines = append(lines, current)
 			current = word
+			currentW = wordW
 		}
 	}
 	if current != "" {

@@ -3,6 +3,8 @@ package ui
 import (
 	"testing"
 	"time"
+
+	"charm.land/lipgloss/v2"
 )
 
 func TestFormatTimestamp_JustNow(t *testing.T) {
@@ -95,8 +97,24 @@ func TestWordWrap_Long(t *testing.T) {
 		t.Errorf("expected wrapping, got %d lines", len(lines))
 	}
 	for _, line := range lines {
-		if len(line) > 20 {
-			t.Errorf("line %q exceeds width 20", line)
+		if lipgloss.Width(line) > 20 {
+			t.Errorf("line %q display width %d exceeds 20", line, lipgloss.Width(line))
+		}
+	}
+}
+
+func TestWordWrap_Emoji(t *testing.T) {
+	// Emojis are 2 cells wide — "🍺" takes 2 columns
+	// With width 10: "hello 🍺" = 5+1+2 = 8 cols, "world" = 5 cols
+	// Total "hello 🍺 world" = 14 cols, should wrap
+	text := "hello 🍺 world"
+	lines := wordWrap(text, 10)
+	if len(lines) < 2 {
+		t.Errorf("expected wrapping with emoji, got %d lines: %v", len(lines), lines)
+	}
+	for _, line := range lines {
+		if lipgloss.Width(line) > 10 {
+			t.Errorf("line %q display width %d exceeds 10", line, lipgloss.Width(line))
 		}
 	}
 }
