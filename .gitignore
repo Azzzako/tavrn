@@ -6,6 +6,7 @@ tavrn.db
 *.db-wal
 *.db-shm
 docs/superpowers/
+docs/*-design.md
 .worktrees/
 .banner
 .addroom
