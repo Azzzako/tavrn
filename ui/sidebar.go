@@ -71,12 +71,12 @@ func (r RoomsPanel) View() string {
 const maxVisibleUsers = 5
 
 type OnlinePanel struct {
-	Users         []string
-	NowTitle      string
+	Users          []string
+	NowTitle       string
 	GenreSwitching string // e.g. "Jazz" when pending genre differs from active
-	Width         int
-	Height        int
-	Frame         int // for animated online dots
+	Width          int
+	Height         int
+	Frame          int // for animated online dots
 }
 
 func NewOnlinePanel() OnlinePanel {
