@@ -4,7 +4,7 @@
 
 A terminal tavern over SSH.
 
-Chat, vote on music, and hang out with strangers — right from your terminal.
+Chat, listen to music, and hang out with strangers — right from your terminal.
 
 No signup. No account. Your SSH key is your identity.
 
@@ -18,7 +18,7 @@ Everything resets weekly. Nothing is permanent.
 
 ### Quick connect
 
-Chat, gallery, jukebox controls, voting — no install needed.
+Chat, gallery, genre radio — no install needed.
 
 ```
 ssh tavrn.sh
@@ -44,7 +44,7 @@ The binary checks on launch and tells you how to install it.
 
 **Rooms** — Hang out in the lounge, post notes on the gallery board, or leave ideas in suggestions.
 
-**Jukebox** — Search for music, add songs to the queue, vote on what plays next. Powered by [Jamendo](https://www.jamendo.com/)'s CC-licensed catalog.
+**Tavern Radio** — Four genre channels (Lofi, Jazz, Electronic, Cantina) streaming from Chillhop and Internet Archive. Pick a genre and it switches after the current track.
 
 **Gallery** — A shared sticky note board. Post, drag, read what others left behind.
 
@@ -63,7 +63,7 @@ See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for development setup, branch w
 
 ### Built with
 
-[Bubble Tea](https://github.com/charmbracelet/bubbletea) · [Wish](https://github.com/charmbracelet/wish) · [Lipgloss](https://github.com/charmbracelet/lipgloss) · [Jamendo](https://www.jamendo.com/) · Go · SQLite
+[Bubble Tea](https://github.com/charmbracelet/bubbletea) · [Wish](https://github.com/charmbracelet/wish) · [Lipgloss](https://github.com/charmbracelet/lipgloss) · [Chillhop](https://chillhop.com/) · [Internet Archive](https://archive.org/) · Go · SQLite
 
 ### License
 

@@ -4,7 +4,7 @@
 
 ```bash
 # Terminal 1 — server
-JAMENDO_CLIENT_ID=your_key go run ./cmd/tavrn-admin
+go run ./cmd/tavrn-admin
 
 # Terminal 2 — client with audio
 go run ./cmd/tavrn --dev
@@ -42,7 +42,7 @@ internal/
   chat/            Message parsing and storage types
   hub/             Connection management, broadcasting
   identity/        Nickname generation, flair, color assignment
-  jukebox/         Music backends, engine, streamer, wire protocol
+  jukebox/         Genre catalogs, engine, streamer, wire protocol
   ratelimit/       Chat rate limiting
   room/            Room definitions
   sanitize/        Input sanitization
@@ -52,9 +52,9 @@ internal/
 ui/
   app.go           Main Bubble Tea model
   modal.go         Modal system (help, nick, rooms, jukebox)
-  jukebox_modal.go Three-tab jukebox UI (now playing, search, vote)
+  jukebox_modal.go Tavern Radio modal (genre tabs, now playing)
   topbar.go        Top bar with Now Playing wave animation
-  sidebar.go       Rooms panel, online users, up next queue
+  sidebar.go       Rooms panel, online users, now playing
   chatview.go      Chat message rendering
   gallery.go       Sticky note board
   overlay.go       Modal overlay compositor
@@ -64,9 +64,9 @@ ui/
 
 ## Architecture
 
-**Server** — Wish-based SSH server. Each connection gets a Bubble Tea TUI. A shared hub broadcasts messages between sessions. The jukebox engine manages track playback state (current track, requests, votes, phase transitions).
+**Server** — Wish-based SSH server. Each connection gets a Bubble Tea TUI. A shared hub broadcasts messages between sessions. The jukebox engine manages track playback state (current track, genre, duration tracking).
 
-**Audio streaming** — The server registers a `tavrn-audio` SSH channel type. When the client binary connects, it opens two channels: `session` (TUI) and `tavrn-audio` (MP3 stream). The streamer downloads tracks from Jamendo, buffers them, and sends them to connected audio channels using a length-prefixed wire protocol.
+**Audio streaming** — The server registers a `tavrn-audio` SSH channel type. When the client binary connects, it opens two channels: `session` (TUI) and `tavrn-audio` (MP3 stream). The streamer downloads tracks from Chillhop and Internet Archive, buffers them, and sends them to connected audio channels using a length-prefixed wire protocol.
 
 **Client binary** — Custom SSH client that opens both channels. Pipes MP3 data to a headless mpv subprocess for playback. Late-joining clients receive audio from the current playback position.
 
