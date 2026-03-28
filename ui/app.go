@@ -743,7 +743,7 @@ func (a App) nextTickInterval() time.Duration {
 	if a.chat.HasTypingUsers() {
 		return typingTickInterval
 	}
-	if a.hasActiveTrack() {
+	if a.hasActiveTrack() || a.chat.HasActiveLogs() {
 		return musicTickInterval
 	}
 	return idleTickInterval

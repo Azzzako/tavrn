@@ -16,10 +16,21 @@ import (
 // Typing dots animation frames
 var typingFrames = []string{"   ", ".  ", ".. ", "..."}
 
+const (
+	maxLogLines = 4
+	logTTL      = 5 * time.Second
+)
+
+type sysLogEntry struct {
+	text string
+	at   time.Time
+}
+
 type ChatView struct {
 	viewport    viewport.Model
 	input       textinput.Model
 	messages    []chat.Message
+	sysLogs     []sysLogEntry        // timestamped, auto-expire
 	typingUsers map[string]time.Time // nick → last typing time
 	typingFrame int
 	width       int
@@ -68,9 +79,33 @@ func (c *ChatView) AddMessage(msg chat.Message) {
 	if msg.Timestamp.IsZero() {
 		msg.Timestamp = time.Now()
 	}
+	// Route system messages (not banners) to the log box
+	if msg.IsSystem && !msg.IsBanner {
+		c.addSysLog(msg.Text)
+		return
+	}
 	c.messages = append(c.messages, msg)
 	c.renderMessages()
 	c.viewport.GotoBottom()
+}
+
+func (c *ChatView) addSysLog(text string) {
+	c.sysLogs = append(c.sysLogs, sysLogEntry{text: text, at: time.Now()})
+	if len(c.sysLogs) > maxLogLines {
+		c.sysLogs = c.sysLogs[len(c.sysLogs)-maxLogLines:]
+	}
+}
+
+func (c *ChatView) pruneExpiredLogs() {
+	now := time.Now()
+	n := 0
+	for _, e := range c.sysLogs {
+		if now.Sub(e.at) < logTTL {
+			c.sysLogs[n] = e
+			n++
+		}
+	}
+	c.sysLogs = c.sysLogs[:n]
 }
 
 func (c *ChatView) SetTyping(nick string) {
@@ -89,12 +124,17 @@ func (c *ChatView) ClearStaleTyping() {
 func (c *ChatView) Tick() {
 	c.typingFrame++
 	c.ClearStaleTyping()
+	c.pruneExpiredLogs()
 	// Re-render to update relative timestamps
 	c.renderMessages()
 }
 
 func (c ChatView) HasTypingUsers() bool {
 	return len(c.typingUsers) > 0
+}
+
+func (c ChatView) HasActiveLogs() bool {
+	return len(c.sysLogs) > 0
 }
 
 func (c *ChatView) renderMessages() {
@@ -113,17 +153,6 @@ func (c *ChatView) renderMessages() {
 			lines = append(lines, bannerText)
 			lines = append(lines, bannerLine)
 			lines = append(lines, "")
-			prevNick = ""
-			continue
-		}
-		if msg.IsSystem {
-			// System messages: dimmed, centered feel
-			sysText := lipgloss.NewStyle().Foreground(ColorDim).Italic(true).Render(
-				"    " + msg.Text)
-			lines = append(lines, sysText)
-			if i < len(c.messages)-1 {
-				lines = append(lines, "")
-			}
 			prevNick = ""
 			continue
 		}
@@ -245,6 +274,11 @@ func (c ChatView) Update(msg tea.Msg) (ChatView, tea.Cmd) {
 func (c ChatView) View() string {
 	chatContent := c.viewport.View()
 
+	// Overlay log box on bottom-right of chat content
+	if len(c.sysLogs) > 0 {
+		chatContent = c.overlayLogBox(chatContent)
+	}
+
 	// Typing indicator
 	typingLine := c.renderTypingIndicator()
 
@@ -266,6 +300,63 @@ func (c ChatView) View() string {
 		inputLine,
 	)
 	return ChatBorderStyle.Width(c.width).Height(c.height).Padding(1, 0).Render(inner)
+}
+
+func (c ChatView) overlayLogBox(base string) string {
+	logW := c.viewport.Width() / 3
+	if logW < 20 {
+		logW = 20
+	}
+	if logW > 40 {
+		logW = 40
+	}
+
+	dim := lipgloss.NewStyle().Foreground(ColorDimmer).Italic(true)
+	var logLines []string
+	for _, e := range c.sysLogs {
+		logLines = append(logLines, dim.Render(truncateWidth(e.text, logW-2)))
+	}
+	logContent := strings.Join(logLines, "\n")
+
+	box := lipgloss.NewStyle().
+		Foreground(ColorDimmer).
+		Width(logW).
+		Padding(0, 1).
+		Render(logContent)
+
+	baseLines := strings.Split(base, "\n")
+	boxLines := strings.Split(box, "\n")
+
+	// Position at bottom-right
+	startY := len(baseLines) - len(boxLines)
+	startX := c.viewport.Width() - logW
+	if startY < 0 {
+		startY = 0
+	}
+	if startX < 0 {
+		startX = 0
+	}
+
+	for i, bLine := range boxLines {
+		row := startY + i
+		if row >= len(baseLines) {
+			break
+		}
+		baseLine := baseLines[row]
+		baseRunes := []rune(stripAnsi(baseLine))
+
+		var b strings.Builder
+		if startX > 0 && startX <= len(baseRunes) {
+			b.WriteString(string(baseRunes[:startX]))
+		} else if startX > len(baseRunes) {
+			b.WriteString(string(baseRunes))
+			b.WriteString(strings.Repeat(" ", startX-len(baseRunes)))
+		}
+		b.WriteString(bLine)
+		baseLines[row] = b.String()
+	}
+
+	return strings.Join(baseLines, "\n")
 }
 
 func (c ChatView) renderTypingIndicator() string {
