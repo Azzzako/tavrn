@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"image/color"
 	"math/rand"
 	"strings"
@@ -302,43 +301,21 @@ func (s Splash) renderCard() string {
 		nick = "~" + nick
 	}
 	b.WriteString(SplashDescStyle.Render("you are ") + NickStyle(0).Render(nick))
-	b.WriteString("\n")
-	fpShort := s.fingerprint
-	if len(fpShort) > 16 {
-		fpShort = fpShort[:16]
-	}
-	b.WriteString(SplashDescStyle.Render(fmt.Sprintf("key: %s...", fpShort)))
-
 	b.WriteString("\n\n")
-	b.WriteString(SplashCategoryStyle.Render("COMMANDS"))
-	b.WriteString("\n")
-	for _, c := range []struct{ cmd, desc string }{
-		{"/nick NAME", "change your handle"},
-		{"/who", "see who's around"},
-		{"/help", "show all commands"},
-	} {
-		fmt.Fprintf(&b, "  %s %s\n",
-			SplashCommandStyle.Width(16).Render(c.cmd),
-			SplashDescStyle.Render(c.desc))
-	}
 
+	b.WriteString(SplashDescStyle.Render("a terminal tavern over SSH."))
 	b.WriteString("\n")
-	b.WriteString(SplashCategoryStyle.Render("KEYS"))
-	b.WriteString("\n")
-	for _, k := range []struct{ key, desc string }{
-		{"ENTER", "send message"},
-		{"CTRL+C", "exit tavern"},
-		{"ESC", "close modals"},
-	} {
-		fmt.Fprintf(&b, "  %s %s\n",
-			SplashCommandStyle.Width(16).Render(k.key),
-			SplashDescStyle.Render(k.desc))
-	}
+	b.WriteString(SplashDescStyle.Render("chat, listen to lofi, hang out."))
+	b.WriteString("\n\n")
 
+	b.WriteString(SplashDescStyle.Italic(true).Render("no accounts. no logs. no rules."))
 	b.WriteString("\n")
-	b.WriteString(SplashDescStyle.Italic(true).Render("all data purged every sunday 23:59 UTC"))
+	b.WriteString(SplashDescStyle.Italic(true).Render("say what you mean."))
+	b.WriteString("\n\n")
+
+	b.WriteString(SplashDescStyle.Foreground(ColorDimmer).Render("everything resets every sunday."))
 	b.WriteString("\n")
-	b.WriteString(SplashDescStyle.Italic(true).Render("nothing is permanent. draw while you can."))
+	b.WriteString(SplashDescStyle.Foreground(ColorDimmer).Render("nothing is permanent."))
 
 	b.WriteString("\n\n")
 	enterFrame := enterPulse[s.frame%len(enterPulse)]

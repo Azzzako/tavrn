@@ -29,6 +29,7 @@ func (b BottomBar) View() string {
 	} else {
 		content = "  " +
 			k.Render("F1") + " " + d.Render("help") + sep +
+			k.Render("F2") + " " + d.Render("nick") + sep +
 			k.Render("F3") + " " + d.Render("rooms") + sep +
 			k.Render("F4") + " " + d.Render("music") + sep +
 			k.Render("SHIFT+↑↓") + " " + d.Render("scroll")

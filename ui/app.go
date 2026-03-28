@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/harmonica"
 	"tavrn.sh/internal/chat"
 	"tavrn.sh/internal/hub"
+	"tavrn.sh/internal/identity"
 	"tavrn.sh/internal/jukebox"
 	"tavrn.sh/internal/sanitize"
 	"tavrn.sh/internal/session"
@@ -633,7 +634,9 @@ func (a App) View() tea.View {
 	var onlineNames []string
 	for _, s := range sessions {
 		name := s.Nickname
-		if s.Flair {
+		if identity.IsOwner(s.Nickname) {
+			name = identity.OwnerDisplayName()
+		} else if s.Flair {
 			name = "~" + name
 		}
 		onlineNames = append(onlineNames, name)

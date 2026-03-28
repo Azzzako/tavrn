@@ -31,6 +31,14 @@ func Clean(input string) string {
 	return b.String()
 }
 
+// ReservedNicks are nicknames that cannot be claimed by regular users.
+var ReservedNicks = map[string]bool{
+	"neur0map": true,
+	"admin":    true,
+	"tavrn":    true,
+	"system":   true,
+}
+
 // CleanNick sanitizes a nickname. Must be 2-20 runes after cleaning.
 // Nicknames are ASCII-only to keep them easy to type and @-mention.
 func CleanNick(nick string) (string, error) {
@@ -43,6 +51,9 @@ func CleanNick(nick string) (string, error) {
 	cleaned := b.String()
 	if utf8.RuneCountInString(cleaned) < 2 || utf8.RuneCountInString(cleaned) > 20 {
 		return "", errors.New("nickname must be 2-20 characters")
+	}
+	if ReservedNicks[strings.ToLower(cleaned)] {
+		return "", errors.New("that nickname is reserved")
 	}
 	return cleaned, nil
 }

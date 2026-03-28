@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"tavrn.sh/internal/chat"
+	"tavrn.sh/internal/identity"
 )
 
 // Typing dots animation frames
@@ -138,7 +139,11 @@ func (c *ChatView) renderMessages() {
 			}
 
 			// Nick + timestamp header
-			nick := NickStyle(msg.ColorIndex).Render(msg.Nickname)
+			displayNick := msg.Nickname
+			if identity.IsOwner(msg.Nickname) {
+				displayNick = identity.OwnerDisplayName()
+			}
+			nick := NickStyle(msg.ColorIndex).Render(displayNick)
 			ts := formatTimestamp(msg.Timestamp, now)
 			timeStr := MsgTimeStyle.Render(ts)
 			header := fmt.Sprintf("    %s  %s", nick, timeStr)
