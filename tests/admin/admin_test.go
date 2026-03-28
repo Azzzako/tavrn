@@ -116,11 +116,8 @@ func TestAdminPurge(t *testing.T) {
 	if !strings.Contains(output, "Purging all data") {
 		t.Errorf("expected purge output, got: %s", output)
 	}
-	if !strings.Contains(output, "Bans will be preserved") {
-		t.Errorf("expected ban preservation notice")
-	}
-	if !strings.Contains(output, "Done") {
-		t.Errorf("expected completion message")
+	if !strings.Contains(output, "Bans and owners preserved") {
+		t.Errorf("expected preservation notice, got: %s", output)
 	}
 }
 

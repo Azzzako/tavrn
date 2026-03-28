@@ -99,20 +99,32 @@ func runAddRoom(name string) {
 }
 
 func runPurge() {
+	// Broadcast purge to connected clients before wiping
+	os.WriteFile(".purge", []byte("1"), 0600)
+	fmt.Println("Signaled connected clients...")
+	time.Sleep(2 * time.Second) // give server time to broadcast
+
 	st, err := store.New("tavrn.db")
 	if err != nil {
 		log.Fatalf("store: %v", err)
 	}
-	defer st.Close()
 
 	fmt.Println("Purging all data (users, chat, gallery, visitors)...")
-	fmt.Println("Bans will be preserved.")
+	fmt.Println("Bans and owners preserved.")
 	if err := st.PurgeAll(); err != nil {
 		log.Fatalf("purge failed: %v", err)
 	}
-	// Signal running server to broadcast purge to connected clients
-	os.WriteFile(".purge", []byte("1"), 0600)
-	fmt.Println("Done. All data purged.")
+	st.Close()
+
+	fmt.Println("Restarting server...")
+	cmd := exec.Command("sudo", "/usr/bin/systemctl", "restart", "tavrn")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		log.Printf("restart failed: %v (restart manually with: sudo systemctl restart tavrn)", err)
+	} else {
+		fmt.Println("Done. Server restarted with clean state.")
+	}
 }
 
 func runServer() {
