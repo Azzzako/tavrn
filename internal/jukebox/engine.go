@@ -8,14 +8,18 @@ import (
 
 // EngineState is a snapshot for the UI.
 type EngineState struct {
-	Current   *Track
-	Position  time.Duration
-	Listeners int
+	Current      *Track
+	Position     time.Duration
+	Listeners    int
+	ActiveGenre  Genre
+	PendingGenre Genre
 }
 
 type Engine struct {
 	mu            sync.RWMutex
-	lofi          *Lofi
+	catalog       *Catalog
+	activeGenre   Genre
+	pendingGenre  Genre
 	current       *Track
 	playStart     time.Time
 	onlineCount   func() int
@@ -24,7 +28,11 @@ type Engine struct {
 }
 
 func NewEngine(lofi *Lofi) *Engine {
-	return &Engine{lofi: lofi}
+	return &Engine{catalog: &Catalog{lofi: lofi}}
+}
+
+func NewEngineWithCatalog(c *Catalog) *Engine {
+	return &Engine{catalog: c}
 }
 
 func (e *Engine) SetOnStateChange(fn func()) {
@@ -45,6 +53,13 @@ func (e *Engine) SetOnlineCount(fn func() int) {
 	e.onlineCount = fn
 }
 
+func (e *Engine) SetGenre(g Genre) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.pendingGenre = g
+	e.notifyChange()
+}
+
 func (e *Engine) State() EngineState {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
@@ -55,8 +70,10 @@ func (e *Engine) State() EngineState {
 	}
 
 	state := EngineState{
-		Current:   e.current,
-		Listeners: online,
+		Current:      e.current,
+		Listeners:    online,
+		ActiveGenre:  e.activeGenre,
+		PendingGenre: e.pendingGenre,
 	}
 	if e.current != nil {
 		state.Position = time.Since(e.playStart)
@@ -115,7 +132,12 @@ func (e *Engine) tick() {
 // playNext picks the next random track. Must be called with lock held.
 // Releases the lock before calling onTrackChange.
 func (e *Engine) playNext() {
-	tracks := e.lofi.randomTracks(1)
+	// Apply pending genre switch
+	if e.pendingGenre != e.activeGenre {
+		e.activeGenre = e.pendingGenre
+	}
+
+	tracks := e.catalog.RandomTracks(e.activeGenre, 1)
 	if len(tracks) == 0 {
 		e.mu.Unlock()
 		return

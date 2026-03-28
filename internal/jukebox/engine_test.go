@@ -89,3 +89,49 @@ func TestEngineTrackChangeCallback(t *testing.T) {
 		t.Error("expected onTrackChange to be called on first tick")
 	}
 }
+
+func TestEngineDefaultGenreIsLofi(t *testing.T) {
+	c := NewCatalog()
+	e := NewEngineWithCatalog(c)
+	state := e.State()
+	if state.ActiveGenre != GenreLofi {
+		t.Errorf("default genre = %s, want Lofi", state.ActiveGenre)
+	}
+}
+
+func TestEngineSetGenrePending(t *testing.T) {
+	c := NewCatalog()
+	e := NewEngineWithCatalog(c)
+	e.SetGenre(GenreJazz)
+	state := e.State()
+	if state.PendingGenre != GenreJazz {
+		t.Errorf("pending genre = %s, want Jazz", state.PendingGenre)
+	}
+	if state.ActiveGenre != GenreLofi {
+		t.Errorf("active genre should still be Lofi before track change, got %s", state.ActiveGenre)
+	}
+}
+
+func TestEngineGenreSwitchOnNextTrack(t *testing.T) {
+	c := NewCatalog()
+	e := NewEngineWithCatalog(c)
+	e.tick() // picks first lofi track
+
+	e.SetGenre(GenreJazz)
+
+	// Force track to end
+	e.mu.Lock()
+	e.current.Duration = 1
+	e.playStart = time.Now().Add(-2 * time.Second)
+	e.mu.Unlock()
+
+	e.tick() // should switch to jazz
+
+	state := e.State()
+	if state.ActiveGenre != GenreJazz {
+		t.Errorf("active genre = %s, want Jazz after track end", state.ActiveGenre)
+	}
+	if state.Current == nil {
+		t.Fatal("expected a track after genre switch")
+	}
+}
