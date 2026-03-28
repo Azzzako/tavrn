@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"sort"
 	"strings"
 	"time"
 
@@ -643,6 +644,7 @@ func (a App) View() tea.View {
 		}
 		onlineNames = append(onlineNames, name)
 	}
+	sort.Strings(onlineNames)
 	a.online.Users = onlineNames
 	a.rooms.CurrentRoom = a.session.Room
 	var roomInfos []RoomInfo
