@@ -83,12 +83,28 @@ A shared drawing room — r/place in the terminal.
 
 ## Federation — Self-Hosted Taverns
 
-Run your own tavern, standalone or linked into a network.
+Run your own tavern. Join the network.
 
-- One binary, one config — spin up a private tavern on your own server
+- One binary, one config — spin up your own tavern on your own server
 - Standalone mode: fully isolated, your rules, your rooms, your music
-- Federated mode: taverns discover each other and share a user directory
-- Cross-tavern chat: `/visit tavern.example.com` to hop between servers
-- Each tavern keeps its own identity — custom name, rooms, AI personality
-- Shared global room for cross-tavern talk, local rooms stay private
-- SSH key is your passport across the network — no accounts, same identity everywhere
+- Each tavern keeps its own identity — custom name, rooms, catalogs, AI personality
+- GPL-3.0 licensed: all taverns must keep their source open
+
+### The Network — tavrn.sh as the Registry
+
+tavrn.sh is the directory, not the host. Tavern owners run their own servers.
+
+- Register your tavern by submitting a PR to the main repo with your tavern's info
+- A `taverns.json` catalog lists all known taverns (name, address, description)
+- Get a vanity subdomain: `myown.tavrn.sh` DNS points to your server's IP
+- `ssh myown.tavrn.sh` connects directly to the owner's box
+- From the main tavern, `/visit myown` hops you there
+- tavrn.sh displays a bulletin board of all registered taverns with live status
+- SSH key is your passport — same identity across the entire network
+
+### How to Join the Network
+
+1. Fork the repo, deploy your tavern (GPL-3.0 requires source stays open)
+2. Submit a PR adding your tavern to `taverns.json` (name, host, description)
+3. PR gets reviewed — tavern must be running and reachable
+4. Once merged, your tavern appears on the bulletin board and gets a `*.tavrn.sh` subdomain
