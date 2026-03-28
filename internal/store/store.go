@@ -84,6 +84,10 @@ func (s *Store) migrate() error {
 		name       TEXT PRIMARY KEY,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
+	CREATE TABLE IF NOT EXISTS owners (
+		fingerprint TEXT PRIMARY KEY,
+		nickname    TEXT NOT NULL
+	);
 	`
 	if _, err := s.db.Exec(schema); err != nil {
 		return err
@@ -96,6 +100,31 @@ func (s *Store) seedRooms() error {
 		s.db.Exec(`INSERT OR IGNORE INTO rooms (name) VALUES (?)`, name)
 	}
 	return nil
+}
+
+// AddOwner registers a permanent owner nickname that survives purges.
+func (s *Store) AddOwner(fingerprint, nickname string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_, err := s.db.Exec(`INSERT OR REPLACE INTO owners (fingerprint, nickname) VALUES (?, ?)`,
+		fingerprint, nickname)
+	return err
+}
+
+// restoreOwners re-creates owner user rows after a purge.
+func (s *Store) restoreOwners() {
+	rows, err := s.db.Query(`SELECT fingerprint, nickname FROM owners`)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var fp, nick string
+		if err := rows.Scan(&fp, &nick); err != nil {
+			continue
+		}
+		s.db.Exec(`INSERT OR IGNORE INTO users (fingerprint, nickname) VALUES (?, ?)`, fp, nick)
+	}
 }
 
 func (s *Store) UpsertUser(fingerprint, nickname string) error {
@@ -373,5 +402,9 @@ func (s *Store) PurgeAll() error {
 	tx.Exec(`DELETE FROM weekly_visitors`)
 	tx.Exec(`DELETE FROM chat_messages`)
 	tx.Exec(`DELETE FROM gallery_notes`)
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	s.restoreOwners()
+	return nil
 }
