@@ -39,6 +39,9 @@ func TestAdminHelp(t *testing.T) {
 	if !strings.Contains(output, "purge") {
 		t.Errorf("expected 'purge' in help output")
 	}
+	if !strings.Contains(output, "--add-room") {
+		t.Errorf("expected '--add-room' in help output")
+	}
 }
 
 func TestAdminHelpFlags(t *testing.T) {
@@ -63,6 +66,40 @@ func TestAdminMessageRequiresText(t *testing.T) {
 	}
 	if !strings.Contains(string(out), "Usage") {
 		t.Errorf("expected usage hint, got: %s", out)
+	}
+}
+
+func TestAdminAddRoomRequiresName(t *testing.T) {
+	bin := buildAdmin(t)
+	cmd := exec.Command(bin, "--add-room")
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatal("expected error when --add-room has no name")
+	}
+	if !strings.Contains(string(out), "Usage") {
+		t.Errorf("expected usage hint, got: %s", out)
+	}
+}
+
+func TestAdminAddRoom(t *testing.T) {
+	bin := buildAdmin(t)
+	dir := t.TempDir()
+	cmd := exec.Command(bin, "--add-room", "arena")
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("--add-room failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(string(out), "Room queued") {
+		t.Errorf("expected queue confirmation, got: %s", out)
+	}
+	// Verify .addroom file was written
+	data, err := os.ReadFile(filepath.Join(dir, ".addroom"))
+	if err != nil {
+		t.Fatalf(".addroom file not created: %v", err)
+	}
+	if string(data) != "arena" {
+		t.Errorf("addroom content = %q, want %q", data, "arena")
 	}
 }
 

@@ -131,9 +131,30 @@ func runServer() {
 		backends = append(backends, jukebox.NewJamendo(jamendoID))
 		log.Printf("Jamendo backend enabled")
 	}
+	lofi := jukebox.NewLofi()
+	backends = append(backends, lofi)
+	log.Printf("Lofi backend enabled (%d tracks)", len(lofi.Tracks()))
+	var ytBackend *jukebox.YouTube
+	if _, err := exec.LookPath("yt-dlp"); err == nil {
+		ytProxy := os.Getenv("YT_PROXY")
+		ytBackend = jukebox.NewYouTube(ytProxy)
+		backends = append(backends, ytBackend)
+		if ytProxy != "" {
+			log.Printf("YouTube backend enabled (proxy: %s)", ytProxy)
+		} else {
+			log.Printf("YouTube backend enabled (direct)")
+		}
+	}
 	jukeboxEngine := jukebox.NewEngine(backends)
 	streamer := jukebox.NewStreamer()
 	jukeboxEngine.SetOnTrackChange(func(track jukebox.Track) {
+		// YouTube tracks need URL resolved just before streaming
+		if track.Source == "youtube" && track.URL == "" && ytBackend != nil {
+			if err := ytBackend.ResolveAndSetURL(context.Background(), &track); err != nil {
+				log.Printf("youtube: failed to resolve URL for %s: %v", track.Title, err)
+				return
+			}
+		}
 		streamer.StreamTrack(track)
 	})
 

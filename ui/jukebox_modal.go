@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -110,6 +111,16 @@ func (m JukeboxModal) Update(msg tea.Msg) (JukeboxModal, tea.Cmd) {
 
 func (m JukeboxModal) updateSearch(msg tea.KeyPressMsg) (JukeboxModal, tea.Cmd) {
 	switch msg.String() {
+	case "ctrl+l":
+		// Queue a random lofi track
+		track := m.pickLofiTrack()
+		if track != nil {
+			m.lastAdded = track.Title
+			m.tab = tabNowPlaying
+			m.searchInput.Blur()
+			return m, func() tea.Msg { return JukeboxAddMsg{Track: *track} }
+		}
+		return m, nil
 	case "enter":
 		if len(m.searchResults) > 0 && m.searchCursor < len(m.searchResults) {
 			track := m.searchResults[m.searchCursor]
@@ -182,6 +193,22 @@ func (m JukeboxModal) updateVote(msg tea.KeyPressMsg) (JukeboxModal, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+// pickLofiTrack returns a random lofi track from the lofi backend.
+func (m JukeboxModal) pickLofiTrack() *jukebox.Track {
+	if m.engine == nil {
+		return nil
+	}
+	for _, b := range m.engine.Backends() {
+		if b.Name() == "lofi" {
+			tracks, err := b.Search(context.Background(), "popular", 1)
+			if err == nil && len(tracks) > 0 {
+				return &tracks[0]
+			}
+		}
+	}
+	return nil
 }
 
 // SearchQuery returns the current search query if a search was triggered.
@@ -423,6 +450,12 @@ func (m JukeboxModal) viewSearch(w int) string {
 			fmt.Sprintf("  type a query, press %s to search", ctrlS)))
 		b.WriteString("\n")
 	}
+
+	// Lofi shortcut
+	b.WriteString("\n")
+	ctrlL := lipgloss.NewStyle().Foreground(ColorMusic).Bold(true).Render("CTRL+L")
+	lofiLabel := lipgloss.NewStyle().Foreground(ColorDim).Render("queue lofi")
+	fmt.Fprintf(&b, "  %s %s\n", ctrlL, lofiLabel)
 
 	return b.String()
 }
