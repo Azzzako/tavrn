@@ -113,8 +113,12 @@ func (o OnlinePanel) View() string {
 			shown = shown[:maxVisibleUsers]
 		}
 
+		maxNameW := o.Width - 6
+		if maxNameW < 8 {
+			maxNameW = 8
+		}
 		for _, u := range shown {
-			fmt.Fprintf(&b, "%s %s\n", dotStyle, u)
+			fmt.Fprintf(&b, "%s %s\n", dotStyle, truncateWidth(u, maxNameW))
 		}
 		if overflow > 0 {
 			b.WriteString(dim.Render(fmt.Sprintf("  +%d more\n", overflow)))
