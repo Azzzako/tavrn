@@ -45,6 +45,9 @@ func main() {
 			}
 			runAddRoom(os.Args[2])
 			return
+		case "--clear-banner":
+			runClearBanner()
+			return
 		case "--update":
 			if err := runUpdate(true); err != nil {
 				log.Fatalf("update: %v", err)
@@ -60,6 +63,7 @@ func main() {
 			fmt.Println("  tavrn                       Start the SSH server")
 			fmt.Println("  tavrn purge                 Purge all data")
 			fmt.Println("  tavrn --message \"text\"      Send banner to all connected users")
+			fmt.Println("  tavrn --clear-banner        Clear the active banner")
 			fmt.Println("  tavrn --add-room \"name\"     Add a new room (live, no restart)")
 			fmt.Println("  tavrn --update-client       Pull main and rebuild only the client binary")
 			fmt.Println("  tavrn --update              Pull main, rebuild both binaries, and restart the service")
@@ -84,6 +88,16 @@ func runMessage(text string) {
 		log.Fatalf("failed to write banner: %v", err)
 	}
 	fmt.Printf("Banner sent: %s\n", text)
+}
+
+func runClearBanner() {
+	st, err := store.New(resolvedDBPath())
+	if err != nil {
+		log.Fatalf("store: %v", err)
+	}
+	defer st.Close()
+	st.ClearBanner()
+	fmt.Println("Banner cleared.")
 }
 
 func runAddRoom(name string) {
