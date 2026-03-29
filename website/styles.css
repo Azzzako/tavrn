@@ -116,6 +116,40 @@ h1 {
   font-size: 1rem;
 }
 
+.radio {
+  margin-top: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.radio.hidden {
+  display: none;
+}
+
+.play-btn {
+  padding: 0.6rem 1.2rem;
+  border: 1px solid rgba(196, 122, 58, 0.4);
+  border-radius: 999px;
+  background: rgba(196, 122, 58, 0.12);
+  color: var(--sand);
+  font-family: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.play-btn:hover {
+  background: rgba(196, 122, 58, 0.25);
+}
+
+.now-playing {
+  color: var(--dim);
+  font-size: 0.85rem;
+}
+
 .status {
   margin: 1.5rem 0 0;
   color: var(--accent);

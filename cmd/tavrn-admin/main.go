@@ -20,6 +20,7 @@ import (
 	"tavrn.sh/internal/session"
 	"tavrn.sh/internal/store"
 	"tavrn.sh/internal/sudoku"
+	"tavrn.sh/internal/webstream"
 )
 
 const bannerFile = ".banner"
@@ -68,6 +69,7 @@ func main() {
 			fmt.Println("  tavrn --add-room \"name\"     Add a new room (live, no restart)")
 			fmt.Println("  tavrn --update-client       Pull main and rebuild only the client binary")
 			fmt.Println("  tavrn --update              Pull main, rebuild both binaries, and restart the service")
+			fmt.Println("  tavrn --web-audio           Start with web audio streaming on :8090")
 			return
 		}
 	}
@@ -82,6 +84,15 @@ func getPort() int {
 		}
 	}
 	return 2222
+}
+
+func hasFlag(flag string) bool {
+	for _, arg := range os.Args[1:] {
+		if arg == flag {
+			return true
+		}
+	}
+	return false
 }
 
 func runMessage(text string) {
@@ -183,6 +194,12 @@ func runServer() {
 
 	sudokuGame := sudoku.NewGame("evil")
 	log.Printf("Sudoku: evil puzzle ready (%d clues)", sudokuGame.Filled())
+
+	// Web audio streaming
+	if hasFlag("--web-audio") {
+		ws := webstream.New(streamer, jukeboxEngine)
+		go ws.ListenAndServe(":8090")
+	}
 
 	port := getPort()
 	srv, err := server.New(server.Config{

@@ -25,8 +25,9 @@ type Streamer struct {
 	audioData       []byte    // complete MP3 for current track
 	playStart       time.Time // when the current track started playing
 	client          *http.Client
-	onDurationKnown func(int) // callback to update engine with actual duration
-	onError         func()    // callback when download fails (engine retries)
+	onDurationKnown func(int)              // callback to update engine with actual duration
+	onError         func()                 // callback when download fails (engine retries)
+	trackSubs       map[chan struct{}]bool // web stream subscribers
 }
 
 // NewStreamer creates a new audio streamer.
@@ -112,6 +113,40 @@ func (s *Streamer) StreamTrack(track Track) {
 	go s.downloadAndBroadcast(ctx, track)
 }
 
+// CurrentAudio returns the current track, its audio data, and when playback started.
+func (s *Streamer) CurrentAudio() (*Track, []byte, time.Time) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.currentTrack == nil || len(s.audioData) == 0 {
+		return nil, nil, time.Time{}
+	}
+	audio := make([]byte, len(s.audioData))
+	copy(audio, s.audioData)
+	t := *s.currentTrack
+	return &t, audio, s.playStart
+}
+
+// SubscribeTrackChange returns a channel that receives a signal when a new track starts playing.
+// Call UnsubscribeTrackChange to clean up.
+func (s *Streamer) SubscribeTrackChange() chan struct{} {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ch := make(chan struct{}, 1)
+	if s.trackSubs == nil {
+		s.trackSubs = make(map[chan struct{}]bool)
+	}
+	s.trackSubs[ch] = true
+	return ch
+}
+
+// UnsubscribeTrackChange removes a track change subscription.
+func (s *Streamer) UnsubscribeTrackChange(ch chan struct{}) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.trackSubs, ch)
+	close(ch)
+}
+
 // Stop cancels the current download.
 func (s *Streamer) Stop() {
 	s.mu.Lock()
@@ -184,6 +219,13 @@ func (s *Streamer) downloadAndBroadcast(ctx context.Context, track Track) {
 	// Store the audio data and mark playback start time
 	s.audioData = audio
 	s.playStart = time.Now()
+	// Notify web stream subscribers
+	for ch := range s.trackSubs {
+		select {
+		case ch <- struct{}{}:
+		default:
+		}
+	}
 	// Snapshot current conns
 	conns := make([]io.WriteCloser, 0, len(s.conns))
 	for conn := range s.conns {
