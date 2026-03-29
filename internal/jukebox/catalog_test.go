@@ -7,44 +7,65 @@ import (
 
 func TestCatalogTrackCount(t *testing.T) {
 	c := NewCatalog()
-	if c.TrackCount(Genre(0)) < 3000 {
-		t.Errorf("lofi tracks = %d, want >= 3000", c.TrackCount(Genre(0)))
-	}
-	if c.TrackCount(Genre(1)) < 200 {
-		t.Errorf("jazz tracks = %d, want >= 200", c.TrackCount(Genre(1)))
-	}
-	if c.TrackCount(Genre(2)) < 200 {
-		t.Errorf("electronic tracks = %d, want >= 200", c.TrackCount(Genre(2)))
-	}
-	if c.TrackCount(Genre(3)) < 100 {
-		t.Errorf("cantina tracks = %d, want >= 100", c.TrackCount(Genre(3)))
+	if c.TrackCount() < 3500 {
+		t.Errorf("total tracks = %d, want >= 3500", c.TrackCount())
 	}
 }
 
-func TestCatalogRandomTracks(t *testing.T) {
+func TestCatalogAllTracks(t *testing.T) {
 	c := NewCatalog()
-	for _, g := range AllGenres() {
-		tracks := c.RandomTracks(g, 5)
-		if len(tracks) != 5 {
-			t.Errorf("%s: got %d tracks, want 5", g, len(tracks))
+	tracks := c.AllTracks()
+	if len(tracks) != c.TrackCount() {
+		t.Errorf("AllTracks len = %d, TrackCount = %d", len(tracks), c.TrackCount())
+	}
+	for i, tr := range tracks[:10] {
+		if tr.URL == "" {
+			t.Errorf("track %d has empty URL", i)
 		}
-		for _, tr := range tracks {
-			if tr.URL == "" {
-				t.Errorf("%s: track has empty URL", g)
-			}
-			if tr.Title == "" {
-				t.Errorf("%s: track has empty title", g)
-			}
+		if tr.Title == "" {
+			t.Errorf("track %d has empty title", i)
 		}
 	}
 }
 
-func TestCatalogRandomTracksJazzURLFormat(t *testing.T) {
+func TestCatalogAllTracksIsCopy(t *testing.T) {
 	c := NewCatalog()
-	tracks := c.RandomTracks(Genre(1), 3)
-	for _, tr := range tracks {
-		if !strings.HasPrefix(tr.URL, "https://archive.org/download/") {
-			t.Errorf("jazz URL wrong prefix: %q", tr.URL)
+	a := c.AllTracks()
+	b := c.AllTracks()
+	if &a[0] == &b[0] {
+		t.Error("AllTracks should return a copy, not a reference")
+	}
+}
+
+func TestCatalogHasMultipleArtists(t *testing.T) {
+	c := NewCatalog()
+	artists := make(map[string]bool)
+	for _, tr := range c.AllTracks() {
+		artists[tr.Artist] = true
+	}
+	if len(artists) < 3 {
+		t.Errorf("expected at least 3 distinct artists, got %d", len(artists))
+	}
+}
+
+func TestCatalogURLFormats(t *testing.T) {
+	c := NewCatalog()
+	var hasChillhop, hasArchive bool
+	for _, tr := range c.AllTracks() {
+		if strings.HasPrefix(tr.URL, "https://stream.chillhop.com/") {
+			hasChillhop = true
 		}
+		if strings.HasPrefix(tr.URL, "https://archive.org/download/") || strings.HasPrefix(tr.URL, "https://ia601004") {
+			hasArchive = true
+		}
+		if hasChillhop && hasArchive {
+			break
+		}
+	}
+	if !hasChillhop {
+		t.Error("expected some chillhop URLs")
+	}
+	if !hasArchive {
+		t.Error("expected some archive.org URLs")
 	}
 }

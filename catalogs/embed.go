@@ -2,5 +2,5 @@ package catalogs
 
 import "embed"
 
-//go:embed genres.json *.txt
+//go:embed catalog.json *.txt
 var FS embed.FS

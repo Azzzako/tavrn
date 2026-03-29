@@ -1,0 +1,20 @@
+{
+  "default_base_url": "https://archive.org/download/",
+  "sources": [
+    {
+      "file": "chillhop.txt",
+      "base_url": "https://stream.chillhop.com/mp3/",
+      "format": "id_title",
+      "artist": "Chillhop"
+    },
+    {
+      "file": "lofi_archive.txt",
+      "base_url": "https://ia601004.us.archive.org/31/items/lofigirl/",
+      "format": "path",
+      "artist": "Lofi Girl"
+    },
+    { "file": "jazz.txt", "artist": "Jazz" },
+    { "file": "electronic.txt", "artist": "Electronic" },
+    { "file": "cantina.txt", "artist": "Cantina" }
+  ]
+}
