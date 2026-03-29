@@ -40,17 +40,17 @@ else
   fail "Port 22 did not return SSH banner (tavrn server may be down)"
 fi
 
-# 4. Go install dry-run (module resolution only, no build)
+# 4. Go module resolution (server binary)
 echo "--- Module resolution ---"
 if GONOSUMCHECK="*" GOFLAGS="-mod=mod" \
-   go list -m -json -mod=mod "tavrn.sh/cmd/tavrn@latest" 2>/dev/null | grep -q '"Path"'; then
-  pass "go module tavrn.sh/cmd/tavrn resolves"
+   go list -m -json -mod=mod "tavrn.sh/cmd/tavrn-admin@latest" 2>/dev/null | grep -q '"Path"'; then
+  pass "go module tavrn.sh/cmd/tavrn-admin resolves"
 else
   # Fallback: just check HTTPS returns the import page
-  if curl -fsSL "https://${HOST}/cmd/tavrn?go-get=1" 2>/dev/null | grep -q "go-import"; then
-    pass "go vanity path /cmd/tavrn resolves via HTTPS"
+  if curl -fsSL "https://${HOST}/cmd/tavrn-admin?go-get=1" 2>/dev/null | grep -q "go-import"; then
+    pass "go vanity path /cmd/tavrn-admin resolves via HTTPS"
   else
-    fail "tavrn.sh/cmd/tavrn module path did not resolve"
+    fail "tavrn.sh/cmd/tavrn-admin module path did not resolve"
   fi
 fi
 

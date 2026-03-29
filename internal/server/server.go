@@ -163,4 +163,3 @@ func (s *Server) Shutdown(timeout time.Duration) error {
 	defer cancel()
 	return s.wish.Shutdown(ctx)
 }
-
