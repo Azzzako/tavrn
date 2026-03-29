@@ -1,10 +1,9 @@
 .PHONY: run test check clean
 
-# Build both binaries, start server, connect with audio
+# Build server and start it
 run:
 	@go build -o bin/tavrn-admin ./cmd/tavrn-admin
-	@go build -o bin/tavrn ./cmd/tavrn
-	@./bin/tavrn-admin & sleep 1 && ./bin/tavrn --dev; kill %1 2>/dev/null
+	@./bin/tavrn-admin & sleep 1 && ssh localhost -p 2222; kill %1 2>/dev/null
 
 # Run all tests with race detector
 test:
@@ -15,7 +14,6 @@ check:
 	gofmt -w .
 	go vet ./...
 	go build -o bin/tavrn-admin ./cmd/tavrn-admin
-	go build -o bin/tavrn ./cmd/tavrn
 	go test -race ./internal/... ./ui/...
 	@echo "All good."
 
