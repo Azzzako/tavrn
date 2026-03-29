@@ -93,44 +93,55 @@ func TestEngineTrackChangeCallback(t *testing.T) {
 	}
 }
 
-func TestEngineDefaultGenreIsLofi(t *testing.T) {
+func TestEngineAdvancesThroughQueue(t *testing.T) {
 	e := newTestEngine()
-	state := e.State()
-	if state.ActiveGenre.String() != "Lofi" {
-		t.Errorf("default genre = %s, want Lofi", state.ActiveGenre)
+	seen := make(map[string]bool)
+	for i := 0; i < 10; i++ {
+		e.mu.Lock()
+		e.playNext() // releases lock
+		e.mu.RLock()
+		seen[e.current.ID] = true
+		e.mu.RUnlock()
+	}
+	if len(seen) != 10 {
+		t.Errorf("expected 10 distinct tracks in first 10 plays, got %d", len(seen))
 	}
 }
 
-func TestEngineSetGenrePending(t *testing.T) {
-	e := newTestEngine()
-	e.SetGenre(Genre(1)) // Jazz
-	state := e.State()
-	if state.PendingGenre.String() != "Jazz" {
-		t.Errorf("pending genre = %s, want Jazz", state.PendingGenre)
-	}
-	if state.ActiveGenre.String() != "Lofi" {
-		t.Errorf("active genre should still be Lofi before track change, got %s", state.ActiveGenre)
-	}
-}
+func TestEngineReshufflesOnExhaustion(t *testing.T) {
+	c := &Catalog{tracks: []Track{
+		{ID: "a", Title: "A", Artist: "X", URL: "http://a"},
+		{ID: "b", Title: "B", Artist: "X", URL: "http://b"},
+		{ID: "c", Title: "C", Artist: "X", URL: "http://c"},
+	}}
+	e := NewEngineWithCatalog(c)
 
-func TestEngineGenreSwitchOnNextTrack(t *testing.T) {
-	e := newTestEngine()
-	e.tick()
-
-	e.SetGenre(Genre(1)) // Jazz
+	for i := 0; i < 3; i++ {
+		e.mu.Lock()
+		e.playNext() // releases lock
+	}
+	e.mu.RLock()
+	pos := e.queuePos
+	e.mu.RUnlock()
+	if pos != 3 {
+		t.Fatalf("queuePos = %d, want 3", pos)
+	}
 
 	e.mu.Lock()
-	e.current.Duration = 1
-	e.playStart = time.Now().Add(-2 * time.Second)
-	e.mu.Unlock()
-
-	e.tick()
-
-	state := e.State()
-	if state.ActiveGenre.String() != "Jazz" {
-		t.Errorf("active genre = %s, want Jazz after track end", state.ActiveGenre)
+	e.playNext() // releases lock
+	e.mu.RLock()
+	pos = e.queuePos
+	e.mu.RUnlock()
+	if pos != 1 {
+		t.Errorf("after reshuffle queuePos = %d, want 1", pos)
 	}
-	if state.Current == nil {
-		t.Fatal("expected a track after genre switch")
+}
+
+func TestEngineEmptyQueue(t *testing.T) {
+	c := &Catalog{tracks: []Track{}}
+	e := NewEngineWithCatalog(c)
+	e.tick() // should not panic
+	if e.State().Current != nil {
+		t.Error("expected no track with empty catalog")
 	}
 }

@@ -2,24 +2,21 @@ package jukebox
 
 import (
 	"context"
+	"math/rand/v2"
 	"sync"
 	"time"
 )
 
-// EngineState is a snapshot for the UI.
 type EngineState struct {
-	Current      *Track
-	Position     time.Duration
-	Listeners    int
-	ActiveGenre  Genre
-	PendingGenre Genre
+	Current   *Track
+	Position  time.Duration
+	Listeners int
 }
 
 type Engine struct {
 	mu            sync.RWMutex
-	catalog       *Catalog
-	activeGenre   Genre
-	pendingGenre  Genre
+	queue         []Track
+	queuePos      int
 	current       *Track
 	playStart     time.Time
 	onlineCount   func() int
@@ -28,7 +25,11 @@ type Engine struct {
 }
 
 func NewEngineWithCatalog(c *Catalog) *Engine {
-	return &Engine{catalog: c}
+	tracks := c.AllTracks()
+	rand.Shuffle(len(tracks), func(i, j int) {
+		tracks[i], tracks[j] = tracks[j], tracks[i]
+	})
+	return &Engine{queue: tracks}
 }
 
 func (e *Engine) SetOnStateChange(fn func()) {
@@ -49,16 +50,6 @@ func (e *Engine) SetOnlineCount(fn func() int) {
 	e.onlineCount = fn
 }
 
-func (e *Engine) SetGenre(g Genre) {
-	e.mu.Lock()
-	e.pendingGenre = g
-	fn := e.onStateChange
-	e.mu.Unlock()
-	if fn != nil {
-		fn()
-	}
-}
-
 func (e *Engine) State() EngineState {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
@@ -69,10 +60,8 @@ func (e *Engine) State() EngineState {
 	}
 
 	state := EngineState{
-		Current:      e.current,
-		Listeners:    online,
-		ActiveGenre:  e.activeGenre,
-		PendingGenre: e.pendingGenre,
+		Current:   e.current,
+		Listeners: online,
 	}
 	if e.current != nil {
 		state.Position = time.Since(e.playStart)
@@ -80,7 +69,6 @@ func (e *Engine) State() EngineState {
 	return state
 }
 
-// UpdateDuration sets the current track's actual duration from ffprobe.
 func (e *Engine) UpdateDuration(seconds int) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -90,8 +78,6 @@ func (e *Engine) UpdateDuration(seconds int) {
 	}
 }
 
-// RetryTrack immediately picks a new track (e.g. when download fails).
-// This avoids the 1-second tick delay and doesn't flash bad tracks in the TUI.
 func (e *Engine) RetryTrack() {
 	e.mu.Lock()
 	e.playNext()
@@ -119,14 +105,12 @@ func (e *Engine) tick() {
 		return
 	}
 
-	// Duration not yet known (waiting for ffprobe)
 	duration := time.Duration(e.current.Duration) * time.Second
 	if duration == 0 {
 		e.mu.Unlock()
 		return
 	}
 
-	// Track ended — play next
 	if time.Since(e.playStart) >= duration {
 		e.playNext()
 		return
@@ -135,20 +119,21 @@ func (e *Engine) tick() {
 	e.mu.Unlock()
 }
 
-// playNext picks the next random track. Must be called with lock held.
-// Releases the lock before calling onTrackChange.
 func (e *Engine) playNext() {
-	// Apply pending genre switch
-	if e.pendingGenre != e.activeGenre {
-		e.activeGenre = e.pendingGenre
-	}
-
-	tracks := e.catalog.RandomTracks(e.activeGenre, 1)
-	if len(tracks) == 0 {
+	if len(e.queue) == 0 {
 		e.mu.Unlock()
 		return
 	}
-	pick := tracks[0]
+
+	if e.queuePos >= len(e.queue) {
+		rand.Shuffle(len(e.queue), func(i, j int) {
+			e.queue[i], e.queue[j] = e.queue[j], e.queue[i]
+		})
+		e.queuePos = 0
+	}
+
+	pick := e.queue[e.queuePos]
+	e.queuePos++
 	e.current = &pick
 	e.playStart = time.Now()
 	e.notifyChange()
