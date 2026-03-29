@@ -18,6 +18,12 @@ type Position struct {
 	Row, Col int
 }
 
+// ScoreEntry is a player's score for the scoreboard.
+type ScoreEntry struct {
+	Nickname string
+	Score    int
+}
+
 // Game holds the shared multiplayer state for a single Sudoku puzzle.
 type Game struct {
 	mu         sync.RWMutex
@@ -25,6 +31,7 @@ type Game struct {
 	solution   Board      // answer key
 	board      [9][9]Cell // current state
 	scores     map[string]int
+	nicknames  map[string]string // fingerprint → nickname
 	cursors    map[string]Position
 	started    time.Time
 	difficulty string
@@ -38,6 +45,7 @@ func NewGame(difficulty string) *Game {
 		puzzle:     puzzle,
 		solution:   solution,
 		scores:     make(map[string]int),
+		nicknames:  make(map[string]string),
 		cursors:    make(map[string]Position),
 		started:    time.Now(),
 		difficulty: difficulty,
@@ -58,6 +66,13 @@ func (g *Game) SetOnUpdate(fn func()) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	g.onUpdate = fn
+}
+
+// RegisterNickname associates a fingerprint with a display name.
+func (g *Game) RegisterNickname(fingerprint, nickname string) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.nicknames[fingerprint] = nickname
 }
 
 // Place puts a number on the board. Returns points earned (+1 or -1).
@@ -102,28 +117,50 @@ func (g *Game) Clear(fingerprint string, row, col int) bool {
 	return true
 }
 
-// Check validates the board. Costs the caller 3 points.
-// Returns positions of wrong cells. Each wrong cell's placer loses 1 point.
-func (g *Game) Check(fingerprint string) (wrong []Position, ok bool) {
+// Reset generates a new puzzle, keeping nicknames and cursors but resetting scores and board.
+func (g *Game) Reset() {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if g.scores[fingerprint] < 3 {
-		return nil, false
-	}
-	g.scores[fingerprint] -= 3
+	puzzle, solution := Generate(g.difficulty)
+	g.puzzle = puzzle
+	g.solution = solution
+	g.board = [9][9]Cell{}
 	for r := 0; r < 9; r++ {
 		for c := 0; c < 9; c++ {
-			cell := g.board[r][c]
-			if cell.Value != 0 && !cell.IsClue && cell.Value != g.solution[r][c] {
-				wrong = append(wrong, Position{Row: r, Col: c})
-				if cell.PlacedBy != "" {
-					g.scores[cell.PlacedBy]--
-				}
+			if puzzle[r][c] != 0 {
+				g.board[r][c] = Cell{Value: puzzle[r][c], IsClue: true}
 			}
 		}
 	}
+	g.scores = make(map[string]int)
+	g.started = time.Now()
 	g.notify()
-	return wrong, true
+}
+
+// TopScores returns up to n top scorers sorted by score descending.
+func (g *Game) TopScores(n int) []ScoreEntry {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	var entries []ScoreEntry
+	for fp, sc := range g.scores {
+		nick := fp
+		if name, ok := g.nicknames[fp]; ok {
+			nick = name
+		}
+		entries = append(entries, ScoreEntry{Nickname: nick, Score: sc})
+	}
+	// Sort descending by score
+	for i := 0; i < len(entries); i++ {
+		for j := i + 1; j < len(entries); j++ {
+			if entries[j].Score > entries[i].Score {
+				entries[i], entries[j] = entries[j], entries[i]
+			}
+		}
+	}
+	if len(entries) > n {
+		entries = entries[:n]
+	}
+	return entries
 }
 
 // SetCursor updates a player's cursor position.

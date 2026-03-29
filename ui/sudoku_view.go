@@ -204,16 +204,27 @@ func (s SudokuView) View() string {
 		combined.WriteString("\n")
 	}
 
-	// Score line — use nickname
 	dim := lipgloss.NewStyle().Foreground(ColorDim)
 	hl := lipgloss.NewStyle().Foreground(ColorHighlight).Bold(true)
 
-	myScore := s.game.Score(s.fingerprint)
-	scoreLine := "  " + NickStyle(s.colorIndex).Render(s.nickname) +
-		dim.Render(":") + hl.Render(fmt.Sprintf("%d", myScore)) +
-		dim.Render(fmt.Sprintf("  · %s · %d/81",
-			strings.ToUpper(s.game.Difficulty()[:1])+s.game.Difficulty()[1:],
-			s.game.Filled()))
+	// Scoreboard — top 5
+	topScores := s.game.TopScores(5)
+	var scoreParts []string
+	for i, e := range topScores {
+		medal := dim.Render(fmt.Sprintf("%d.", i+1))
+		name := lipgloss.NewStyle().Foreground(ColorSand).Render(truncateWidth(e.Nickname, 18))
+		pts := hl.Render(fmt.Sprintf("%d", e.Score))
+		scoreParts = append(scoreParts, fmt.Sprintf("%s %s %s", medal, name, pts))
+	}
+	scoreBoard := ""
+	if len(scoreParts) > 0 {
+		scoreBoard = "  " + strings.Join(scoreParts, dim.Render("  ·  "))
+	}
+
+	// Status
+	statusLine := "  " + dim.Render(fmt.Sprintf("%s · %d/81",
+		strings.ToUpper(s.game.Difficulty()[:1])+s.game.Difficulty()[1:],
+		s.game.Filled()))
 
 	// Help line
 	k := lipgloss.NewStyle().Foreground(ColorHighlight).Bold(true)
@@ -221,11 +232,14 @@ func (s SudokuView) View() string {
 	helpLine := "  " + k.Render("←→↑↓") + d.Render(" move  ") +
 		k.Render("1-9") + d.Render(" place  ") +
 		k.Render("x") + d.Render(" clear  ") +
-		k.Render("C") + d.Render(" check(3)  ") +
 		k.Render("Tab") + d.Render(" chat  ") +
 		k.Render("ESC") + d.Render(" back")
 
-	inner := combined.String() + "\n" + scoreLine + "\n" + helpLine
+	inner := combined.String()
+	if scoreBoard != "" {
+		inner += "\n" + scoreBoard
+	}
+	inner += "\n" + statusLine + "\n" + helpLine
 
 	return ChatBorderStyle.Width(s.width).Height(s.height).Padding(1, 1).Render(inner)
 }

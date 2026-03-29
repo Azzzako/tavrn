@@ -379,20 +379,17 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 					return a, nil
 				}
-			case "C":
-				if !a.sudokuView.FocusChat() {
-					wrong, ok := a.sudokuGame.Check(a.session.Fingerprint)
-					if ok {
-						a.sudokuView.MarkWrong(wrong)
-					}
-					return a, nil
-				}
 			}
 		}
 		var cmd tea.Cmd
 		sv := *a.sudokuView
 		sv, cmd = sv.Update(msg)
 		a.sudokuView = &sv
+		// Check if puzzle is solved
+		if a.sudokuGame.IsSolved() {
+			a.sudokuView.AddMessage(chat.NewSystemMessage("games", "Puzzle solved! New puzzle starting..."))
+			a.sudokuGame.Reset()
+		}
 		return a, cmd
 	}
 
@@ -614,6 +611,7 @@ func (a *App) switchRoom(target string) {
 		sv := NewSudokuView(a.sudokuGame, a.session.Fingerprint, a.session.Nickname, a.session.ColorIndex)
 		a.sudokuView = &sv
 		a.doLayout()
+		a.sudokuGame.RegisterNickname(a.session.Fingerprint, a.session.Nickname)
 		a.sudokuGame.SetCursor(a.session.Fingerprint, 0, 0)
 		// Load chat history into the game chat
 		history, _ := a.store.RecentMessages(target, 50)

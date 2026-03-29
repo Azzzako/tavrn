@@ -156,100 +156,43 @@ func TestClearOtherPlacement(t *testing.T) {
 	}
 }
 
-func TestCheckCost(t *testing.T) {
+func TestTopScores(t *testing.T) {
 	g := NewGame("easy")
+	g.RegisterNickname("p1", "alice")
+	g.RegisterNickname("p2", "bob")
 
-	// Give player 5 points by placing correct values.
+	// Place some correct numbers for p1
 	placed := 0
-	for r := 0; r < 9 && placed < 5; r++ {
-		for c := 0; c < 9 && placed < 5; c++ {
+	for r := 0; r < 9 && placed < 3; r++ {
+		for c := 0; c < 9 && placed < 3; c++ {
 			if g.board[r][c].Value == 0 {
-				g.Place("checker", r, c, g.solution[r][c])
+				g.Place("p1", r, c, g.solution[r][c])
 				placed++
 			}
 		}
 	}
-	if g.Score("checker") < 3 {
-		t.Fatalf("setup failed: score %d", g.Score("checker"))
-	}
 
-	scoreBefore := g.Score("checker")
-	wrong, ok := g.Check("checker")
-	if !ok {
-		t.Fatal("check should succeed with enough points")
+	top := g.TopScores(5)
+	if len(top) == 0 {
+		t.Fatal("expected at least one score entry")
 	}
-	scoreAfter := g.Score("checker")
-	if scoreAfter != scoreBefore-3 {
-		t.Fatalf("expected score %d, got %d", scoreBefore-3, scoreAfter)
-	}
-	// All placements are correct, so no wrong positions.
-	if len(wrong) != 0 {
-		t.Fatalf("expected 0 wrong, got %d", len(wrong))
+	if top[0].Nickname != "alice" {
+		t.Errorf("top scorer = %q, want alice", top[0].Nickname)
 	}
 }
 
-func TestCheckInsufficientPoints(t *testing.T) {
+func TestReset(t *testing.T) {
 	g := NewGame("easy")
+	_, _, er, ec := clueAndEmpty(g)
+	g.Place("p1", er, ec, g.solution[er][ec])
 
-	// Player has 0 points, check should fail.
-	_, ok := g.Check("broke")
-	if ok {
-		t.Fatal("check should fail with insufficient points")
-	}
-}
+	g.Reset()
 
-func TestCheckPenalizesWrongPlacers(t *testing.T) {
-	g := NewGame("easy")
-
-	// Place a wrong value by player "badguy".
-	var wrongR, wrongC int
-	for r := 0; r < 9; r++ {
-		for c := 0; c < 9; c++ {
-			if g.board[r][c].Value == 0 {
-				correct := g.solution[r][c]
-				wrong := correct%9 + 1
-				g.Place("badguy", r, c, wrong)
-				wrongR, wrongC = r, c
-				goto done
-			}
-		}
+	if g.Score("p1") != 0 {
+		t.Error("scores should reset")
 	}
-done:
-
-	// Give "checker" enough points (place 4 correct).
-	placed := 0
-	for r := 0; r < 9 && placed < 4; r++ {
-		for c := 0; c < 9 && placed < 4; c++ {
-			if g.board[r][c].Value == 0 {
-				g.Place("checker", r, c, g.solution[r][c])
-				placed++
-			}
-		}
-	}
-	if g.Score("checker") < 3 {
-		t.Fatalf("setup failed: checker score %d", g.Score("checker"))
-	}
-
-	badBefore := g.Score("badguy")
-	wrong, ok := g.Check("checker")
-	if !ok {
-		t.Fatal("check should succeed")
-	}
-
-	// Exactly one wrong position at (wrongR, wrongC).
-	found := false
-	for _, p := range wrong {
-		if p.Row == wrongR && p.Col == wrongC {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatalf("expected wrong position (%d,%d) in results", wrongR, wrongC)
-	}
-
-	// Badguy should have lost 1 more point.
-	if g.Score("badguy") != badBefore-1 {
-		t.Fatalf("expected badguy score %d, got %d", badBefore-1, g.Score("badguy"))
+	if g.Filled() >= 81 {
+		t.Error("board should have empty cells after reset")
 	}
 }
 
