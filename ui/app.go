@@ -615,6 +615,18 @@ func (a *App) switchRoom(target string) {
 		a.sudokuView = &sv
 		a.doLayout()
 		a.sudokuGame.SetCursor(a.session.Fingerprint, 0, 0)
+		// Load chat history into the game chat
+		history, _ := a.store.RecentMessages(target, 50)
+		for _, m := range history {
+			a.sudokuView.AddMessage(chat.Message{
+				Nickname:   m.Nickname,
+				ColorIndex: m.ColorIndex,
+				Text:       m.Text,
+				Room:       m.Room,
+				Timestamp:  m.CreatedAt,
+				IsSystem:   m.IsSystem,
+			})
+		}
 	} else {
 		// Load chat history
 		history, _ := a.store.RecentMessages(target, 50)
