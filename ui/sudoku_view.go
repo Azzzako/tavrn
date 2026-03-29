@@ -189,10 +189,10 @@ func (s SudokuView) View() string {
 		if i < len(boardLines) {
 			bl = boardLines[i]
 		}
-		// Pad board line to consistent width
-		blPlain := stripAnsi(bl)
-		if len(blPlain) < renderedBoardW {
-			bl += strings.Repeat(" ", renderedBoardW-len(blPlain))
+		// Pad board line to consistent visual width
+		visW := lipgloss.Width(bl)
+		if visW < renderedBoardW {
+			bl += strings.Repeat(" ", renderedBoardW-visW)
 		}
 		cl := ""
 		if i < len(chatLines) {
