@@ -8,7 +8,7 @@ User=tavrn
 WorkingDirectory=/home/tavrn/tavrn
 EnvironmentFile=-/home/tavrn/tavrn/.env
 Environment=TAVRN_PORT=22
-ExecStart=/home/tavrn/tavrn/tavrn
+ExecStart=/home/tavrn/tavrn/tavrn --web-audio
 Restart=always
 RestartSec=3
 LimitNOFILE=65535
