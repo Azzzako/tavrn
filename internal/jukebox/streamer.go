@@ -16,7 +16,6 @@ import (
 // Streamer fetches MP3 data from track URLs and sends it to connected clients.
 type Streamer struct {
 	mu              sync.RWMutex
-	conns           map[io.WriteCloser]bool
 	cancel          context.CancelFunc
 	currentTrack    *Track
 	audioData       []byte    // complete MP3 for current track
@@ -30,7 +29,6 @@ type Streamer struct {
 // NewStreamer creates a new audio streamer.
 func NewStreamer() *Streamer {
 	return &Streamer{
-		conns:  make(map[io.WriteCloser]bool),
 		client: &http.Client{},
 	}
 }
@@ -47,52 +45,6 @@ func (s *Streamer) SetOnError(fn func()) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.onError = fn
-}
-
-// AddConn registers a new audio channel connection.
-// If a track is playing, sends the remaining audio from the current position.
-func (s *Streamer) AddConn(conn io.WriteCloser) {
-	s.mu.Lock()
-	track := s.currentTrack
-	var audio []byte
-	var skipBytes int
-	if len(s.audioData) > 0 && track != nil {
-		// Calculate how far into the track we are
-		elapsed := time.Since(s.playStart).Seconds()
-		duration := float64(track.Duration)
-		if duration > 0 {
-			progress := elapsed / duration
-			if progress > 1.0 {
-				progress = 1.0
-			}
-			skipBytes = int(progress * float64(len(s.audioData)))
-		}
-		remaining := s.audioData[skipBytes:]
-		audio = make([]byte, len(remaining))
-		copy(audio, remaining)
-	}
-	s.conns[conn] = true
-	s.mu.Unlock()
-
-	if track != nil && len(audio) > 0 {
-		log.Printf("streamer: sending track to new conn: %s (skipped %d bytes, sending %d bytes)",
-			track.Title, skipBytes, len(audio))
-		s.sendTrack(conn, *track, audio)
-	}
-}
-
-// RemoveConn removes an audio channel connection.
-func (s *Streamer) RemoveConn(conn io.WriteCloser) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.conns, conn)
-}
-
-// ConnCount returns the number of connected audio channels.
-func (s *Streamer) ConnCount() int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return len(s.conns)
 }
 
 // StreamTrack downloads the track and sends it to all connected clients.
@@ -205,8 +157,7 @@ func (s *Streamer) downloadAndBroadcast(ctx context.Context, track Track) {
 	}
 
 	estimatedDuration := estimateMP3Duration(audio)
-	log.Printf("streamer: downloaded %d bytes (~%ds), broadcasting to %d conns",
-		len(audio), estimatedDuration, s.ConnCount())
+	log.Printf("streamer: downloaded %d bytes (~%ds)", len(audio), estimatedDuration)
 
 	s.mu.Lock()
 	if s.onDurationKnown != nil {
@@ -223,30 +174,7 @@ func (s *Streamer) downloadAndBroadcast(ctx context.Context, track Track) {
 		default:
 		}
 	}
-	// Snapshot current conns
-	conns := make([]io.WriteCloser, 0, len(s.conns))
-	for conn := range s.conns {
-		conns = append(conns, conn)
-	}
 	s.mu.Unlock()
-
-	// Send to all connected clients
-	var failed []io.WriteCloser
-	for _, conn := range conns {
-		if err := s.sendTrack(conn, track, audio); err != nil {
-			failed = append(failed, conn)
-		}
-	}
-
-	// Remove failed connections
-	if len(failed) > 0 {
-		s.mu.Lock()
-		for _, conn := range failed {
-			delete(s.conns, conn)
-			conn.Close()
-		}
-		s.mu.Unlock()
-	}
 }
 
 func (s *Streamer) signalError() {
@@ -256,15 +184,6 @@ func (s *Streamer) signalError() {
 	if fn != nil {
 		fn()
 	}
-}
-
-// sendTrack writes raw MP3 audio bytes to a connection.
-func (s *Streamer) sendTrack(conn io.WriteCloser, _ Track, audio []byte) error {
-	if _, err := conn.Write(audio); err != nil {
-		log.Printf("streamer: audio write error: %v", err)
-		return err
-	}
-	return nil
 }
 
 // estimateMP3Duration returns the duration in seconds.
