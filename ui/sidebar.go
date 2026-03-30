@@ -17,11 +17,12 @@ type RoomInfo struct {
 // ─────────────────────────────────────
 
 type RoomsPanel struct {
-	Rooms         []RoomInfo
-	CurrentRoom   string
-	Width         int
-	Height        int
-	MentionCounts map[string]int // room name → unread mention count
+	Rooms          []RoomInfo
+	CurrentRoom    string
+	Width          int
+	Height         int
+	MentionCounts  map[string]int // room name → unread mention count
+	ActivityCounts map[string]int // room name → messages in last 10min
 }
 
 func NewRoomsPanel() RoomsPanel {
@@ -39,6 +40,9 @@ func (r RoomsPanel) View() string {
 	b.WriteString(sep)
 	b.WriteString("\n")
 
+	activityBadge := lipgloss.NewStyle().Foreground(ColorHighlight).Bold(true)
+	mentionBadge := lipgloss.NewStyle().Foreground(ColorAmber).Bold(true)
+
 	for _, rm := range r.Rooms {
 		isCurrent := rm.Name == r.CurrentRoom
 		name := fmt.Sprintf("#%s", rm.Name)
@@ -52,8 +56,7 @@ func (r RoomsPanel) View() string {
 			line := indicator + roomName + roomCount
 			if r.MentionCounts != nil {
 				if mc := r.MentionCounts[rm.Name]; mc > 0 {
-					line += lipgloss.NewStyle().Foreground(ColorAmber).Bold(true).
-						Render(fmt.Sprintf(" (%d)", mc))
+					line += mentionBadge.Render(fmt.Sprintf(" (%d)", mc))
 				}
 			}
 			b.WriteString(line + "\n")
@@ -62,10 +65,16 @@ func (r RoomsPanel) View() string {
 			roomName := lipgloss.NewStyle().Foreground(ColorSand).Render(name)
 			roomCount := lipgloss.NewStyle().Foreground(ColorDimmer).Render(count)
 			line := " " + roomName + roomCount
+			// Activity count (new messages in last 10min)
+			if r.ActivityCounts != nil {
+				if ac := r.ActivityCounts[rm.Name]; ac > 0 {
+					line += activityBadge.Render(fmt.Sprintf(" %d", ac))
+				}
+			}
+			// Mention badge takes priority appearance after activity
 			if r.MentionCounts != nil {
 				if mc := r.MentionCounts[rm.Name]; mc > 0 {
-					line += lipgloss.NewStyle().Foreground(ColorAmber).Bold(true).
-						Render(fmt.Sprintf(" (%d)", mc))
+					line += mentionBadge.Render(fmt.Sprintf(" @%d", mc))
 				}
 			}
 			b.WriteString(line + "\n")

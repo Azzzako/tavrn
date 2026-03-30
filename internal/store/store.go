@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -284,6 +285,32 @@ func (s *Store) RecentMessages(room string, limit int) ([]ChatRow, error) {
 		msgs[i], msgs[j] = msgs[j], msgs[i]
 	}
 	return msgs, nil
+}
+
+// RecentActivityCounts returns the number of non-system messages per room
+// within the last N minutes.
+func (s *Store) RecentActivityCounts(minutes int) map[string]int {
+	rows, err := s.db.Query(`
+		SELECT room, COUNT(*) FROM chat_messages
+		WHERE created_at > datetime('now', ? || ' minutes')
+		AND is_system = 0
+		GROUP BY room
+	`, fmt.Sprintf("-%d", minutes))
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	counts := make(map[string]int)
+	for rows.Next() {
+		var room string
+		var count int
+		if err := rows.Scan(&room, &count); err != nil {
+			continue
+		}
+		counts[room] = count
+	}
+	return counts
 }
 
 // ── Gallery Notes ──

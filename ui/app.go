@@ -882,6 +882,7 @@ func (a App) View() tea.View {
 		})
 	}
 	a.rooms.Rooms = roomInfos
+	a.rooms.ActivityCounts = a.store.RecentActivityCounts(10)
 
 	// Build mention counts for room badges
 	mentionCounts := make(map[string]int)
