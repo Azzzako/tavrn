@@ -143,6 +143,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if a.state == stateTavern {
 			a.chat.Tick()
+			a.pruneExpiredMentions()
 			if a.sudokuView != nil {
 				a.sudokuView.Tick()
 			}
@@ -296,6 +297,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "f4":
 			unread := a.unreadMentions()
 			if len(unread) == 0 {
+				a.chat.AddMessage(chat.NewSystemMessage(a.session.Room, "No recent mentions"))
 				return a, nil
 			}
 			contexts := a.buildMentionContexts(unread)
@@ -648,6 +650,21 @@ func (a *App) detectMentions(msg session.Msg) {
 
 // unreadMentionCount returns the number of unread mentions for a room.
 // If room is empty, returns total unread count.
+const mentionTTL = 30 * time.Minute
+
+// pruneExpiredMentions removes mentions older than 30 minutes.
+func (a *App) pruneExpiredMentions() {
+	now := time.Now()
+	n := 0
+	for _, m := range a.mentions {
+		if now.Sub(m.Timestamp) < mentionTTL {
+			a.mentions[n] = m
+			n++
+		}
+	}
+	a.mentions = a.mentions[:n]
+}
+
 func (a *App) unreadMentionCount(room string) int {
 	count := 0
 	for _, m := range a.mentions {
