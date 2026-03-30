@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
 
 	"charm.land/bubbles/v2/textinput"
 	"charm.land/bubbles/v2/viewport"
@@ -95,7 +96,10 @@ func (c ChatView) highlightMentions(text, ownNick string) string {
 	words := strings.Fields(text)
 	for i, word := range words {
 		if len(word) > 1 && word[0] == '@' {
-			name := strings.TrimRight(word[1:], ".,!?;:")
+			// Strip trailing punctuation — same logic as mention.ExtractTokens
+			name := strings.TrimRightFunc(word[1:], func(r rune) bool {
+				return unicode.IsPunct(r) && r != '_' && r != '~'
+			})
 			trailing := word[1+len(name):]
 			if strings.EqualFold(name, ownNick) {
 				words[i] = MentionSelfStyle.Render("@"+name) + trailing
@@ -444,28 +448,28 @@ func (c ChatView) renderMentionPopup() string {
 		return ""
 	}
 
-	visible := c.mentionNames
-	if len(visible) > maxPopupItems {
+	start := 0
+	end := len(c.mentionNames)
+	if end > maxPopupItems {
 		// Scroll window around cursor
-		start := c.mentionCursor - maxPopupItems/2
+		start = c.mentionCursor - maxPopupItems/2
 		if start < 0 {
 			start = 0
 		}
-		end := start + maxPopupItems
-		if end > len(visible) {
-			end = len(visible)
+		end = start + maxPopupItems
+		if end > len(c.mentionNames) {
+			end = len(c.mentionNames)
 			start = end - maxPopupItems
 			if start < 0 {
 				start = 0
 			}
 		}
-		visible = visible[start:end]
 	}
 
 	var lines []string
-	for _, name := range visible {
-		isSelected := name == c.mentionNames[c.mentionCursor]
-		if isSelected {
+	for i := start; i < end; i++ {
+		name := c.mentionNames[i]
+		if i == c.mentionCursor {
 			lines = append(lines, MentionSelectedStyle.Render("▸ "+name))
 		} else {
 			lines = append(lines, MentionItemStyle.Render("  "+name))
