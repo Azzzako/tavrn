@@ -67,3 +67,39 @@ func TestScore_EmptyQuery(t *testing.T) {
 		t.Error("empty query should match everything")
 	}
 }
+
+func TestMatch_FiltersAndRanks(t *testing.T) {
+	names := []string{"deadmau5", "synthwave_84", "dj_shadow", "neur0map"}
+	got := Match("d", names)
+	// Should include deadmau5 and dj_shadow (prefix), maybe neur0map (no d? no.)
+	if len(got) < 2 {
+		t.Errorf("expected at least 2 matches, got %d: %v", len(got), got)
+	}
+	if got[0] != "deadmau5" && got[0] != "dj_shadow" {
+		t.Errorf("first match should be a prefix match, got %q", got[0])
+	}
+}
+
+func TestMatch_EmptyQuery(t *testing.T) {
+	names := []string{"alice", "bob"}
+	got := Match("", names)
+	if len(got) != 2 {
+		t.Errorf("empty query should return all, got %d", len(got))
+	}
+}
+
+func TestMatch_NoMatches(t *testing.T) {
+	names := []string{"alice", "bob"}
+	got := Match("xyz", names)
+	if len(got) != 0 {
+		t.Errorf("expected no matches, got %v", got)
+	}
+}
+
+func TestMatch_FuzzyOrdering(t *testing.T) {
+	names := []string{"synthwave_84", "deadmau5"}
+	got := Match("dmu", names)
+	if len(got) != 1 || got[0] != "deadmau5" {
+		t.Errorf("expected [deadmau5], got %v", got)
+	}
+}

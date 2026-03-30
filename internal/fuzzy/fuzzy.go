@@ -1,6 +1,9 @@
 package fuzzy
 
-import "strings"
+import (
+	"sort"
+	"strings"
+)
 
 // Score returns a match quality score. Negative means no match.
 // Higher is better: exact > prefix > contiguous substring > fuzzy.
@@ -39,4 +42,28 @@ func Score(query, target string) int {
 	}
 
 	return -1
+}
+
+// Match filters and ranks names by fuzzy score against query.
+// Returns matched names sorted best-first.
+func Match(query string, names []string) []string {
+	type scored struct {
+		name  string
+		score int
+	}
+	var matches []scored
+	for _, name := range names {
+		s := Score(query, name)
+		if s >= 0 {
+			matches = append(matches, scored{name, s})
+		}
+	}
+	sort.Slice(matches, func(i, j int) bool {
+		return matches[i].score > matches[j].score
+	})
+	result := make([]string, len(matches))
+	for i, m := range matches {
+		result[i] = m.name
+	}
+	return result
 }
