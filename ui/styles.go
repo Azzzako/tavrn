@@ -23,6 +23,7 @@ var (
 	ColorAccent     = lipgloss.Color("137")
 	ColorGreen      = lipgloss.Color("108")
 	ColorTyping     = lipgloss.Color("109")
+	ColorMention    = lipgloss.Color("179") // gold highlight for @mentions
 
 	// 12 muted cantina tones for nicknames
 	NickColors = []color.Color{
@@ -119,6 +120,27 @@ var (
 	TypingStyle = lipgloss.NewStyle().
 			Foreground(ColorTyping).
 			Italic(true)
+
+	// Mention autocomplete popup styles
+	MentionPopupStyle = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(ColorBorder).
+				Padding(0, 1)
+
+	MentionSelectedStyle = lipgloss.NewStyle().
+				Foreground(ColorAmber).
+				Bold(true)
+
+	MentionItemStyle = lipgloss.NewStyle().
+				Foreground(ColorSand)
+
+	MentionSelfStyle = lipgloss.NewStyle().
+				Foreground(ColorAmber).
+				Bold(true)
+
+	MentionHighlightStyle = lipgloss.NewStyle().
+				Foreground(ColorMention).
+				Bold(true)
 )
 
 func NickStyle(colorIndex int) lipgloss.Style {

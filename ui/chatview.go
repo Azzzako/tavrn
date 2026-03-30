@@ -18,8 +18,9 @@ import (
 var typingFrames = []string{"   ", ".  ", ".. ", "..."}
 
 const (
-	maxLogLines = 4
-	logTTL      = 5 * time.Second
+	maxLogLines   = 4
+	logTTL        = 5 * time.Second
+	maxPopupItems = 5
 )
 
 type sysLogEntry struct {
@@ -327,6 +328,11 @@ func (c ChatView) View() string {
 		chatContent = c.overlayLogBox(chatContent)
 	}
 
+	// Overlay mention autocomplete popup
+	if c.mentionPopup && len(c.mentionNames) > 0 {
+		chatContent = c.overlayMentionPopup(chatContent)
+	}
+
 	// Typing indicator
 	typingLine := c.renderTypingIndicator()
 
@@ -401,6 +407,83 @@ func (c ChatView) overlayLogBox(base string) string {
 			b.WriteString(strings.Repeat(" ", startX-len(baseRunes)))
 		}
 		b.WriteString(bLine)
+		baseLines[row] = b.String()
+	}
+
+	return strings.Join(baseLines, "\n")
+}
+
+// renderMentionPopup renders the autocomplete popup box.
+func (c ChatView) renderMentionPopup() string {
+	if !c.mentionPopup || len(c.mentionNames) == 0 {
+		return ""
+	}
+
+	visible := c.mentionNames
+	if len(visible) > maxPopupItems {
+		// Scroll window around cursor
+		start := c.mentionCursor - maxPopupItems/2
+		if start < 0 {
+			start = 0
+		}
+		end := start + maxPopupItems
+		if end > len(visible) {
+			end = len(visible)
+			start = end - maxPopupItems
+			if start < 0 {
+				start = 0
+			}
+		}
+		visible = visible[start:end]
+	}
+
+	var lines []string
+	for _, name := range visible {
+		isSelected := name == c.mentionNames[c.mentionCursor]
+		if isSelected {
+			lines = append(lines, MentionSelectedStyle.Render("▸ "+name))
+		} else {
+			lines = append(lines, MentionItemStyle.Render("  "+name))
+		}
+	}
+
+	content := strings.Join(lines, "\n")
+	return MentionPopupStyle.Render(content)
+}
+
+// overlayMentionPopup composites the popup on the bottom of the chat viewport.
+func (c ChatView) overlayMentionPopup(base string) string {
+	popup := c.renderMentionPopup()
+	if popup == "" {
+		return base
+	}
+
+	baseLines := strings.Split(base, "\n")
+	popupLines := strings.Split(popup, "\n")
+
+	// Position: bottom of viewport, left-aligned with some indent
+	startY := len(baseLines) - len(popupLines)
+	startX := 2
+	if startY < 0 {
+		startY = 0
+	}
+
+	for i, pLine := range popupLines {
+		row := startY + i
+		if row >= len(baseLines) {
+			break
+		}
+		baseLine := baseLines[row]
+		baseRunes := []rune(stripAnsi(baseLine))
+
+		var b strings.Builder
+		if startX > 0 && startX <= len(baseRunes) {
+			b.WriteString(string(baseRunes[:startX]))
+		} else if startX > len(baseRunes) {
+			b.WriteString(string(baseRunes))
+			b.WriteString(strings.Repeat(" ", startX-len(baseRunes)))
+		}
+		b.WriteString(pLine)
 		baseLines[row] = b.String()
 	}
 
