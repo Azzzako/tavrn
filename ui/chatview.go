@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"tavrn.sh/internal/chat"
+	"tavrn.sh/internal/fuzzy"
 	"tavrn.sh/internal/identity"
 )
 
@@ -35,6 +36,12 @@ type ChatView struct {
 	typingFrame int
 	width       int
 	height      int
+
+	// Autocomplete popup
+	mentionPopup  bool
+	mentionQuery  string
+	mentionNames  []string // filtered results from fuzzy.Match
+	mentionCursor int      // selected index
 }
 
 func NewChatView() ChatView {
@@ -406,4 +413,83 @@ func (c *ChatView) InputValue() string {
 // HasInput returns true if the user has typed something.
 func (c *ChatView) HasInput() bool {
 	return c.input.Value() != ""
+}
+
+// detectMentionTrigger checks if the cursor is inside an @query.
+// Returns (query, true) if active, ("", false) otherwise.
+func (c *ChatView) detectMentionTrigger() (string, bool) {
+	val := c.input.Value()
+	pos := c.input.Position()
+	if pos == 0 {
+		return "", false
+	}
+
+	// Walk backwards from cursor to find @
+	text := val[:pos]
+	atIdx := -1
+	for i := len(text) - 1; i >= 0; i-- {
+		if text[i] == ' ' || text[i] == '\n' {
+			break
+		}
+		if text[i] == '@' {
+			atIdx = i
+			break
+		}
+	}
+	if atIdx < 0 {
+		return "", false
+	}
+	// @ must be at start or after whitespace
+	if atIdx > 0 && text[atIdx-1] != ' ' {
+		return "", false
+	}
+	query := text[atIdx+1:]
+	return query, true
+}
+
+// completeMention replaces @query with @fullname in the input.
+func (c *ChatView) completeMention(name string) {
+	val := c.input.Value()
+	pos := c.input.Position()
+	text := val[:pos]
+
+	// Find the @ that started this mention
+	atIdx := strings.LastIndex(text, "@")
+	if atIdx < 0 {
+		return
+	}
+
+	replacement := "@" + name + " "
+	newVal := val[:atIdx] + replacement + val[pos:]
+	c.input.SetValue(newVal)
+	c.input.SetCursor(atIdx + len(replacement))
+	c.mentionPopup = false
+	c.mentionQuery = ""
+	c.mentionNames = nil
+	c.mentionCursor = 0
+}
+
+// UpdateMentionPopup refreshes the autocomplete popup state.
+// onlineNames is the list of users currently in the room.
+func (c *ChatView) UpdateMentionPopup(onlineNames []string) {
+	query, active := c.detectMentionTrigger()
+	if !active {
+		c.mentionPopup = false
+		c.mentionQuery = ""
+		c.mentionNames = nil
+		c.mentionCursor = 0
+		return
+	}
+	c.mentionPopup = true
+	c.mentionQuery = query
+	c.mentionNames = fuzzy.Match(query, onlineNames)
+	// Reset cursor if out of bounds
+	if c.mentionCursor >= len(c.mentionNames) {
+		c.mentionCursor = 0
+	}
+}
+
+// MentionPopupActive returns true if the autocomplete popup is showing with results.
+func (c *ChatView) MentionPopupActive() bool {
+	return c.mentionPopup && len(c.mentionNames) > 0
 }
