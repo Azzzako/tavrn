@@ -8,11 +8,11 @@ import (
 )
 
 type TopBar struct {
-	Room           string
-	OnlineCount    int
-	WeeklyCount    int
-	AllTimeCount   int
-	Width          int
+	Room         string
+	OnlineCount  int
+	WeeklyCount  int
+	AllTimeCount int
+	Width        int
 }
 
 func NewTopBar() TopBar {
