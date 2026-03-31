@@ -115,8 +115,8 @@ func (c *ChatView) AddMessage(msg chat.Message) {
 	if msg.Timestamp.IsZero() {
 		msg.Timestamp = time.Now()
 	}
-	// Route system messages (not banners) to the log box
-	if msg.IsSystem && !msg.IsBanner {
+	// Route system messages (not banners/polls) to the log box
+	if msg.IsSystem && !msg.IsBanner && !msg.IsPoll {
 		c.addSysLog(msg.Text)
 		return
 	}
@@ -189,6 +189,17 @@ func (c *ChatView) renderMessages() {
 				lines = append(lines, bannerStyle.Render("  "+wl))
 			}
 			lines = append(lines, bannerLine)
+			lines = append(lines, "")
+			prevNick = ""
+			continue
+		}
+
+		if msg.IsPoll {
+			// Poll card: pre-rendered, insert each line with indent
+			lines = append(lines, "")
+			for _, pl := range strings.Split(msg.Text, "\n") {
+				lines = append(lines, "  "+pl)
+			}
 			lines = append(lines, "")
 			prevNick = ""
 			continue

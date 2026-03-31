@@ -15,6 +15,7 @@ type Message struct {
 	Timestamp   time.Time
 	IsSystem    bool
 	IsBanner    bool
+	IsPoll      bool
 }
 
 // ParseResult holds the result of parsing user input.

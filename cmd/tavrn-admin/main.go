@@ -16,6 +16,7 @@ import (
 
 	"tavrn.sh/internal/hub"
 	"tavrn.sh/internal/jukebox"
+	"tavrn.sh/internal/poll"
 	"tavrn.sh/internal/server"
 	"tavrn.sh/internal/session"
 	"tavrn.sh/internal/store"
@@ -346,6 +347,8 @@ func runServer() {
 		go ws.ListenAndServe(":8090")
 	}
 
+	pollStore := poll.NewStore()
+
 	port := getPort()
 	srv, err := server.New(server.Config{
 		Host:          "0.0.0.0",
@@ -355,6 +358,7 @@ func runServer() {
 		Hub:           h,
 		JukeboxEngine: jukeboxEngine,
 		SudokuGame:    sudokuGame,
+		PollStore:     pollStore,
 	})
 	if err != nil {
 		log.Fatalf("server: %v", err)
@@ -363,7 +367,7 @@ func runServer() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go startPurgeScheduler(st, h)
+	go startPurgeScheduler(st, h, pollStore)
 	go startGalleryCleanup(st, h)
 	go watchBannerFile(st, h)
 	go watchAddRoomFile(st, h)
@@ -564,7 +568,7 @@ func resolveCommand(name string, env []string) (string, error) {
 	return "", fmt.Errorf("exec: %q not found in PATH", name)
 }
 
-func startPurgeScheduler(st *store.Store, h *hub.Hub) {
+func startPurgeScheduler(st *store.Store, h *hub.Hub, ps *poll.Store) {
 	for {
 		now := time.Now().UTC()
 		daysUntilSunday := (7 - int(now.Weekday())) % 7
@@ -581,6 +585,7 @@ func startPurgeScheduler(st *store.Store, h *hub.Hub) {
 			Text: "The tavern has been swept clean.",
 		})
 		st.PurgeAll()
+		ps.Clear()
 		log.Println("Weekly purge complete")
 	}
 }

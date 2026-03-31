@@ -15,6 +15,7 @@ import (
 	"tavrn.sh/internal/hub"
 	"tavrn.sh/internal/identity"
 	"tavrn.sh/internal/mention"
+	"tavrn.sh/internal/poll"
 	"tavrn.sh/internal/sanitize"
 	"tavrn.sh/internal/session"
 	"tavrn.sh/internal/store"
@@ -66,6 +67,12 @@ type App struct {
 	postModal       PostModal
 	expandNoteModal ExpandNoteModal
 	mentionModal    MentionModal
+	pollModal       PollModal
+	pollVoteOverlay PollVoteOverlay
+	changelogModal  ChangelogModal
+
+	// Polls
+	pollStore *poll.Store
 
 	// Mentions
 	mentions []mention.Mention
@@ -84,7 +91,7 @@ type App struct {
 	transVel    float64
 }
 
-func NewApp(sess *session.Session, st *store.Store, h *hub.Hub, onSend func(session.Msg), game *sudoku.Game) App {
+func NewApp(sess *session.Session, st *store.Store, h *hub.Hub, onSend func(session.Msg), game *sudoku.Game, ps *poll.Store) App {
 	app := App{
 		state:      stateSplash,
 		splash:     NewSplash(sess.Nickname, sess.Fingerprint, sess.Flair),
@@ -100,6 +107,7 @@ func NewApp(sess *session.Session, st *store.Store, h *hub.Hub, onSend func(sess
 		onSend:     onSend,
 		modal:      ModalNone,
 		sudokuGame: game,
+		pollStore:  ps,
 	}
 	app.chat.SetOwnNickname(sess.Nickname)
 	drinkCount, _ := st.GetDrinkCount(sess.Fingerprint)
@@ -254,11 +262,47 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			Note: &session.NoteData{ID: msg.NoteID, X: msg.X, Y: msg.Y},
 		})
 		return a, nil
+
+	case PollCreateMsg:
+		a.modal = ModalNone
+		p := a.pollStore.Create(a.session.Room, a.session.Fingerprint, a.session.Nickname, msg.Title, msg.Options)
+		a.chat.AddMessage(chat.Message{
+			Room:   a.session.Room,
+			Text:   RenderPollCard(p),
+			IsPoll: true,
+		})
+		a.onSend(session.Msg{
+			Type:        session.MsgPollCreate,
+			Room:        a.session.Room,
+			Fingerprint: a.session.Fingerprint,
+			PollID:      p.ID,
+		})
+		return a, nil
+
+	case PollVoteMsg:
+		a.pollStore.Vote(msg.PollID, a.session.Fingerprint, msg.OptionIndex)
+		// Refresh the overlay
+		polls := a.pollStore.RoomPolls(a.session.Room)
+		a.pollVoteOverlay.SetPolls(polls)
+		a.onSend(session.Msg{
+			Type:        session.MsgPollVote,
+			Room:        a.session.Room,
+			Fingerprint: a.session.Fingerprint,
+			PollID:      msg.PollID,
+		})
+		return a, nil
 	}
 
 	// Splash state — handle keys directly (tick/resize handled above)
 	if a.state == stateSplash {
 		if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
+			// Changelog modal open on splash — only Esc closes it
+			if a.modal == ModalChangelog {
+				if keyMsg.String() == "esc" {
+					a.modal = ModalNone
+				}
+				return a, nil
+			}
 			switch keyMsg.String() {
 			case "enter", "y":
 				a.state = stateTransition
@@ -271,6 +315,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if banner := a.store.GetBanner(); banner != "" {
 					a.chat.AddMessage(chat.NewBannerMessage(a.session.Room, banner))
 				}
+				return a, nil
+			case "c":
+				a.modal = ModalChangelog
+				a.changelogModal = NewChangelogModal()
 				return a, nil
 			case "q", "ctrl+c":
 				return a, tea.Quit
@@ -530,6 +578,14 @@ func (a App) updateModal(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.markMentionRead(a.mentionModal.Current())
 		}
 		return a, cmd
+	case ModalPoll:
+		var cmd tea.Cmd
+		a.pollModal, cmd = a.pollModal.Update(msg)
+		return a, cmd
+	case ModalPollVote:
+		var cmd tea.Cmd
+		a.pollVoteOverlay, cmd = a.pollVoteOverlay.Update(msg)
+		return a, cmd
 	}
 	return a, nil
 }
@@ -593,7 +649,36 @@ func (a App) handleInput() (tea.Model, tea.Cmd) {
 }
 
 func (a *App) handleCommand(parsed chat.ParseResult) {
-	a.chat.AddMessage(chat.NewSystemMessage(a.session.Room, "Use F1 for help with keybinds."))
+	switch parsed.Command {
+	case "poll":
+		a.modal = ModalPoll
+		a.pollModal = NewPollModal()
+	case "vote":
+		polls := a.pollStore.RoomPolls(a.session.Room)
+		if len(polls) == 0 {
+			a.chat.AddMessage(chat.NewSystemMessage(a.session.Room, "No polls in this room."))
+			return
+		}
+		a.modal = ModalPollVote
+		a.pollVoteOverlay = NewPollVoteOverlay(polls, a.session.Fingerprint)
+	case "endpoll":
+		p := a.pollStore.LatestByCreator(a.session.Room, a.session.Fingerprint)
+		if p == nil {
+			a.chat.AddMessage(chat.NewSystemMessage(a.session.Room, "You have no active polls here."))
+			return
+		}
+		a.pollStore.Close(p.ID, a.session.Fingerprint)
+		a.chat.AddMessage(chat.NewSystemMessage(a.session.Room,
+			fmt.Sprintf("Poll closed: %s", p.Title)))
+		a.onSend(session.Msg{
+			Type:        session.MsgPollClose,
+			Room:        a.session.Room,
+			Fingerprint: a.session.Fingerprint,
+			PollID:      p.ID,
+		})
+	default:
+		a.chat.AddMessage(chat.NewSystemMessage(a.session.Room, "Use F1 for help with keybinds."))
+	}
 }
 
 func (a *App) handleHubMsg(msg session.Msg) {
@@ -672,6 +757,39 @@ func (a *App) handleHubMsg(msg session.Msg) {
 		} else {
 			a.chat.AddMessage(chat.NewSystemMessage(a.session.Room,
 				fmt.Sprintf("Room #%s has been removed", removedRoom)))
+		}
+	case session.MsgPollCreate:
+		if msg.Fingerprint != a.session.Fingerprint {
+			p := a.pollStore.Get(msg.PollID)
+			if p != nil {
+				a.chat.AddMessage(chat.Message{
+					Room:     msg.Room,
+					Text:     RenderPollCard(p),
+					IsSystem: true,
+				})
+			}
+		}
+	case session.MsgPollVote:
+		// Refresh vote overlay if open
+		if a.modal == ModalPollVote {
+			polls := a.pollStore.RoomPolls(a.session.Room)
+			a.pollVoteOverlay.SetPolls(polls)
+		}
+	case session.MsgPollClose:
+		if msg.Fingerprint != a.session.Fingerprint {
+			p := a.pollStore.Get(msg.PollID)
+			if p != nil {
+				a.chat.AddMessage(chat.Message{
+					Room:     msg.Room,
+					Text:     RenderPollCard(p),
+					IsSystem: true,
+				})
+			}
+		}
+		// Refresh vote overlay if open
+		if a.modal == ModalPollVote {
+			polls := a.pollStore.RoomPolls(a.session.Room)
+			a.pollVoteOverlay.SetPolls(polls)
 		}
 	}
 }
@@ -905,7 +1023,15 @@ func (a *App) doLayout() {
 
 func (a App) View() tea.View {
 	if a.state == stateSplash {
-		return a.splash.View()
+		v := a.splash.View()
+		if a.modal == ModalChangelog {
+			modalBox := a.changelogModal.View(a.width, a.height)
+			content := v.Content
+			content = Overlay(content, modalBox, a.width, a.height)
+			v = tea.NewView(content)
+			v.AltScreen = true
+		}
+		return v
 	}
 
 	if a.width == 0 {
@@ -1000,6 +1126,10 @@ func (a App) View() tea.View {
 			modalBox = a.expandNoteModal.View(a.width, a.height)
 		case ModalMention:
 			modalBox = a.mentionModal.View(a.width, a.height)
+		case ModalPoll:
+			modalBox = a.pollModal.View(a.width, a.height)
+		case ModalPollVote:
+			modalBox = a.pollVoteOverlay.View(a.width, a.height)
 		}
 		base = Overlay(base, modalBox, a.width, a.height)
 	}

@@ -25,6 +25,9 @@ const (
 	ModalExpandNote
 	ModalAdminConfirm
 	ModalMention
+	ModalPoll
+	ModalPollVote
+	ModalChangelog
 )
 
 // CloseModalMsg signals modal should close.

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"image/color"
 	"math/rand"
 	"strings"
@@ -8,6 +9,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"tavrn.sh/internal/version"
 )
 
 const tavernArt = "" +
@@ -329,7 +331,13 @@ func (s Splash) renderCard() string {
 	bottomPair := artGradientPairs[(s.frame+3)%len(artGradientPairs)]
 	b.WriteString(GradientText(strings.Repeat("╱", 44), bottomPair[0], bottomPair[1], false))
 	b.WriteString("\n")
-	b.WriteString(centerText(SplashDescStyle.Render("[ v0.2 ]"), 8, 44))
+	verStr := fmt.Sprintf("[ v%s ]", version.Version)
+	b.WriteString(centerText(SplashDescStyle.Render(verStr), len(verStr), 44))
+	b.WriteString("\n")
+	cKey := SplashKeyStyle.Render("[ C ]")
+	cDesc := lipgloss.NewStyle().Foreground(ColorDim).Render(" changelog")
+	changeHint := cKey + cDesc
+	b.WriteString(centerText(changeHint, 15, 44))
 
 	return b.String()
 }
