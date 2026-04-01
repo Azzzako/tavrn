@@ -359,7 +359,7 @@ func runServer() {
 			log.Printf("bartender: soul.md not found, using default")
 			soul = []byte("You are a gruff bartender in a terminal tavern. Keep replies to 1-2 sentences.")
 		}
-		bt = bartender.New(apiKey, string(soul))
+		bt = bartender.New(apiKey, string(soul), st)
 		log.Println("bartender: enabled")
 	} else {
 		log.Println("bartender: disabled (no OPENAI_API_KEY)")

@@ -171,7 +171,7 @@ func (s *Server) teaHandler(sshSess ssh.Session) (tea.Model, []tea.ProgramOption
 							})
 						}
 					}
-					reply, err := s.cfg.Bartender.Respond(context, msg.Nickname, msg.Text)
+					reply, err := s.cfg.Bartender.Respond(context, msg.Fingerprint, msg.Nickname, msg.Text)
 					if err != nil {
 						log.Printf("bartender error: %v", err)
 						return

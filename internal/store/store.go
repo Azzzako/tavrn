@@ -102,6 +102,16 @@ func (s *Store) migrate() error {
 		fingerprint TEXT PRIMARY KEY,
 		count       INTEGER NOT NULL DEFAULT 0
 	);
+	CREATE TABLE IF NOT EXISTS bartender_memories (
+		id         INTEGER PRIMARY KEY AUTOINCREMENT,
+		text       TEXT NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE TABLE IF NOT EXISTS bartender_user_notes (
+		fingerprint TEXT PRIMARY KEY,
+		note        TEXT NOT NULL,
+		updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
 	CREATE TABLE IF NOT EXISTS ssh_links (
 		id      INTEGER PRIMARY KEY AUTOINCREMENT,
 		address TEXT NOT NULL UNIQUE
@@ -616,4 +626,54 @@ func (s *Store) AllSSHLinks() []string {
 		links = append(links, addr)
 	}
 	return links
+}
+
+// ── Bartender Memory (survives purges) ──
+
+func (s *Store) AddBartenderMemory(text string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	// Cap at 200 memories — delete oldest if over
+	s.db.Exec(`DELETE FROM bartender_memories WHERE id IN (
+		SELECT id FROM bartender_memories ORDER BY created_at ASC
+		LIMIT max(0, (SELECT COUNT(*) FROM bartender_memories) - 199)
+	)`)
+	_, err := s.db.Exec(`INSERT INTO bartender_memories (text) VALUES (?)`, text)
+	return err
+}
+
+func (s *Store) BartenderMemories(limit int) []string {
+	rows, err := s.db.Query(`SELECT text FROM bartender_memories ORDER BY created_at DESC LIMIT ?`, limit)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var mems []string
+	for rows.Next() {
+		var t string
+		if err := rows.Scan(&t); err != nil {
+			continue
+		}
+		mems = append(mems, t)
+	}
+	return mems
+}
+
+func (s *Store) SetBartenderUserNote(fingerprint, note string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_, err := s.db.Exec(`INSERT INTO bartender_user_notes (fingerprint, note, updated_at)
+		VALUES (?, ?, CURRENT_TIMESTAMP)
+		ON CONFLICT(fingerprint) DO UPDATE SET note = ?, updated_at = CURRENT_TIMESTAMP`,
+		fingerprint, note, note)
+	return err
+}
+
+func (s *Store) BartenderUserNote(fingerprint string) string {
+	row := s.db.QueryRow(`SELECT note FROM bartender_user_notes WHERE fingerprint = ?`, fingerprint)
+	var note string
+	if err := row.Scan(&note); err != nil {
+		return ""
+	}
+	return note
 }
