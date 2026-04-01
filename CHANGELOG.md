@@ -10,6 +10,8 @@
 - Other SSH section in the sidebar (/addssh, /rmssh)
 - version system + changelog modal (C on splash)
 - help modal updated with all keybinds and commands
+- URLs render as styled boxes in chat
+- text selection works outside gallery
 
 ## v0.2
 
