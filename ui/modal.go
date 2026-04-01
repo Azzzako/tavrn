@@ -81,7 +81,8 @@ func (h HelpModal) View(width, height int) string {
 		{"F3", "switch rooms"},
 		{"F4", "view mentions"},
 		{"F5", "post note"},
-		{"ESC", "close modal"},
+		{"F6", "tankard clicker"},
+		{"ESC", "close modal / unfocus"},
 		{"SHIFT+arrows", "scroll chat"},
 	}
 	for _, k := range keys {
@@ -89,17 +90,40 @@ func (h HelpModal) View(width, height int) string {
 	}
 
 	b.WriteString("\n")
+	b.WriteString(cat.Render("COMMANDS"))
+	b.WriteString("\n")
+	cmds := []struct{ k, d string }{
+		{"/poll", "create a poll"},
+		{"/vote", "vote on active polls"},
+		{"/endpoll", "close your poll"},
+	}
+	for _, c := range cmds {
+		fmt.Fprintf(&b, "  %s  %s\n", cmd.Width(18).Render(c.k), desc.Render(c.d))
+	}
+
+	b.WriteString("\n")
 	b.WriteString(cat.Render("GALLERY KEYS"))
 	b.WriteString("\n")
 	gkeys := []struct{ k, d string }{
 		{"P", "post note"},
-		{"J", "switch rooms"},
-		{"H", "help"},
 		{"D", "delete your note"},
 		{"TAB", "cycle selection"},
 		{"click + drag", "move your notes"},
 	}
 	for _, k := range gkeys {
+		fmt.Fprintf(&b, "  %s  %s\n", cmd.Width(18).Render(k.k), desc.Render(k.d))
+	}
+
+	b.WriteString("\n")
+	b.WriteString(cat.Render("GAMES KEYS"))
+	b.WriteString("\n")
+	gamekeys := []struct{ k, d string }{
+		{"TAB", "toggle board / chat"},
+		{"arrows", "move on board"},
+		{"1-9", "place number"},
+		{"X", "clear cell"},
+	}
+	for _, k := range gamekeys {
 		fmt.Fprintf(&b, "  %s  %s\n", cmd.Width(18).Render(k.k), desc.Render(k.d))
 	}
 
