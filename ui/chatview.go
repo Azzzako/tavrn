@@ -227,17 +227,26 @@ func (c *ChatView) renderMessages() {
 			lines = append(lines, header)
 		}
 
-		// Message body — indented under nick
-		highlighted := c.highlightMentions(msg.Text, c.ownNickname)
-		msgLines := wordWrap(highlighted, c.viewport.Width()-8)
-		for _, ml := range msgLines {
-			body := "      " + ml
-			lines = append(lines, body)
+		// Message body — strip URLs from text, render as boxes below
+		msgText := msg.Text
+		urls := extractURLs(msgText)
+		for _, u := range urls {
+			msgText = strings.Replace(msgText, u, "", 1)
+		}
+		msgText = strings.TrimSpace(msgText)
+
+		if msgText != "" {
+			highlighted := c.highlightMentions(msgText, c.ownNickname)
+			msgLines := wordWrap(highlighted, c.viewport.Width()-8)
+			for _, ml := range msgLines {
+				lines = append(lines, "      "+ml)
+			}
 		}
 
-		// URL boxes — rendered below the message text
-		if urlBoxes := renderTextWithURLs(msg.Text, c.viewport.Width()-8); len(urlBoxes) > 0 {
-			lines = append(lines, urlBoxes...)
+		for _, u := range urls {
+			for _, line := range strings.Split(renderURLBox(u), "\n") {
+				lines = append(lines, "      "+line)
+			}
 		}
 	}
 	c.viewport.SetContent(strings.Join(lines, "\n"))
