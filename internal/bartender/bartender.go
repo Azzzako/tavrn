@@ -65,6 +65,10 @@ func (ts TavernState) Describe() string {
 		parts = append(parts, fmt.Sprintf("Packed. %d drifters crammed in here.", ts.OnlineCount))
 	}
 
+	if len(ts.OnlineNames) > 0 {
+		parts = append(parts, fmt.Sprintf("At the bar: %s.", strings.Join(ts.OnlineNames, ", ")))
+	}
+
 	if ts.ActivePolls > 0 {
 		parts = append(parts, fmt.Sprintf("%d poll going.", ts.ActivePolls))
 	}

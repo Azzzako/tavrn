@@ -142,8 +142,14 @@ func (s *Server) teaHandler(sshSess ssh.Session) (tea.Model, []tea.ProgramOption
 
 	tavernState := func() bartender.TavernState {
 		wc, _ := s.cfg.Store.WeeklyVisitorCount()
+		sessions := s.cfg.Hub.Sessions("lounge")
+		var names []string
+		for _, sess := range sessions {
+			names = append(names, sess.Nickname)
+		}
 		return bartender.TavernState{
 			OnlineCount:     s.cfg.Hub.OnlineCount(),
+			OnlineNames:     names,
 			TimeUTC:         time.Now().UTC(),
 			WeeklyVisitors:  wc,
 			AllTimeVisitors: s.cfg.Store.AllTimeVisitorCount(),
@@ -152,7 +158,7 @@ func (s *Server) teaHandler(sshSess ssh.Session) (tea.Model, []tea.ProgramOption
 	}
 
 	gatherContext := func() []bartender.ChatMsg {
-		history, _ := s.cfg.Store.RecentMessages("lounge", 20)
+		history, _ := s.cfg.Store.RecentMessages("lounge", 50)
 		var ctx []bartender.ChatMsg
 		for _, m := range history {
 			if !m.IsSystem {
