@@ -1110,6 +1110,9 @@ func (a App) View() tea.View {
 		}
 		onlineNames = append(onlineNames, name)
 	}
+	if a.session.Room == "lounge" {
+		onlineNames = append(onlineNames, "bartender")
+	}
 	sort.Strings(onlineNames)
 	a.online.Users = onlineNames
 	a.online.Tankard = &a.tankard
