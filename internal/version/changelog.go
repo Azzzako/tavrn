@@ -9,6 +9,19 @@ type Entry struct {
 // Changelog lists versions newest-first.
 var Changelog = []Entry{
 	{
+		Version: "0.3",
+		Changes: []string{
+			"The Shadow — AI bartender in the lounge, @bartender to talk",
+			"bartender remembers regulars across sessions",
+			"bartender drops unprompted remarks when the bar is active",
+			"mood system — gets grumpier the more you bother him",
+			"gallery notes persist all week, not hourly wipes",
+			"Other SSH section in the sidebar (/addssh, /rmssh)",
+			"version system + changelog modal (C on splash)",
+			"help modal updated with all keybinds and commands",
+		},
+	},
+	{
 		Version: "0.2",
 		Changes: []string{
 			"polls — /poll, /vote, /endpoll",
