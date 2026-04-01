@@ -115,19 +115,6 @@ func (h HelpModal) View(width, height int) string {
 	}
 
 	b.WriteString("\n")
-	b.WriteString(cat.Render("GAMES KEYS"))
-	b.WriteString("\n")
-	gamekeys := []struct{ k, d string }{
-		{"TAB", "toggle board / chat"},
-		{"arrows", "move on board"},
-		{"1-9", "place number"},
-		{"X", "clear cell"},
-	}
-	for _, k := range gamekeys {
-		fmt.Fprintf(&b, "  %s  %s\n", cmd.Width(18).Render(k.k), desc.Render(k.d))
-	}
-
-	b.WriteString("\n")
 	b.WriteString(cat.Render("INFO"))
 	b.WriteString("\n")
 	b.WriteString(desc.Italic(true).Render(
