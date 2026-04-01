@@ -15,7 +15,7 @@ import (
 
 const (
 	apiURL          = "https://api.openai.com/v1/chat/completions"
-	chatModel       = "gpt-4.1-nano"
+	chatModel       = "gpt-4.1-mini"
 	memoryModel     = "gpt-4.1-nano"
 	maxTokens       = 150
 	memoryMaxTokens = 100
