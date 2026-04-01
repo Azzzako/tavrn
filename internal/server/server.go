@@ -197,10 +197,27 @@ func (s *Server) teaHandler(sshSess ssh.Session) (tea.Model, []tea.ProgramOption
 		if bartender.ShouldRespond(msg.Text, msg.Room) {
 			if s.cfg.Bartender.CanRespond(msg.Fingerprint) {
 				go func() {
-					s.cfg.Hub.Broadcast("lounge", session.Msg{
-						Type: session.MsgTyping, Nickname: "bartender", Room: "lounge",
-					})
+					// Keep typing indicator alive until API responds
+					done := make(chan struct{})
+					go func() {
+						ticker := time.NewTicker(3 * time.Second)
+						defer ticker.Stop()
+						s.cfg.Hub.Broadcast("lounge", session.Msg{
+							Type: session.MsgTyping, Nickname: "bartender", Room: "lounge",
+						})
+						for {
+							select {
+							case <-done:
+								return
+							case <-ticker.C:
+								s.cfg.Hub.Broadcast("lounge", session.Msg{
+									Type: session.MsgTyping, Nickname: "bartender", Room: "lounge",
+								})
+							}
+						}
+					}()
 					reply, err := s.cfg.Bartender.Respond(gatherContext(), tavernState(), msg.Fingerprint, msg.Nickname, msg.Text)
+					close(done)
 					if err != nil {
 						log.Printf("bartender error: %v", err)
 						broadcastBartender("Wipes the glass and says nothing.")
@@ -215,10 +232,26 @@ func (s *Server) teaHandler(sshSess ssh.Session) (tea.Model, []tea.ProgramOption
 		// Unprompted remark — only on lounge messages
 		if msg.Room == "lounge" && s.cfg.Bartender.ShouldRemark() {
 			go func() {
-				s.cfg.Hub.Broadcast("lounge", session.Msg{
-					Type: session.MsgTyping, Nickname: "bartender", Room: "lounge",
-				})
+				done := make(chan struct{})
+				go func() {
+					ticker := time.NewTicker(3 * time.Second)
+					defer ticker.Stop()
+					s.cfg.Hub.Broadcast("lounge", session.Msg{
+						Type: session.MsgTyping, Nickname: "bartender", Room: "lounge",
+					})
+					for {
+						select {
+						case <-done:
+							return
+						case <-ticker.C:
+							s.cfg.Hub.Broadcast("lounge", session.Msg{
+								Type: session.MsgTyping, Nickname: "bartender", Room: "lounge",
+							})
+						}
+					}
+				}()
 				reply, err := s.cfg.Bartender.Remark(tavernState(), gatherContext())
+				close(done)
 				if err != nil {
 					log.Printf("bartender remark error: %v", err)
 					return
