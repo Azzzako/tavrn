@@ -15,9 +15,9 @@ import (
 
 const (
 	apiURL          = "https://api.openai.com/v1/chat/completions"
-	chatModel       = "gpt-4.1-mini"
+	chatModel       = "gpt-5-mini-2025-08-07"
 	memoryModel     = "gpt-4.1-nano"
-	maxTokens       = 150
+	maxTokens       = 500 // includes hidden reasoning tokens (~300) + response (~150)
 	memoryMaxTokens = 100
 	cooldownPerUser = 10 * time.Second
 )
@@ -374,9 +374,10 @@ type apiMessage struct {
 }
 
 type apiRequest struct {
-	Model     string       `json:"model"`
-	Messages  []apiMessage `json:"messages"`
-	MaxTokens int          `json:"max_tokens"`
+	Model               string       `json:"model"`
+	Messages            []apiMessage `json:"messages"`
+	MaxTokens           int          `json:"max_tokens,omitempty"`
+	MaxCompletionTokens int          `json:"max_completion_tokens,omitempty"`
 }
 
 type apiChoice struct {
@@ -394,9 +395,14 @@ type apiError struct {
 
 func (b *Bartender) callAPI(model string, messages []apiMessage, tokens int) (string, error) {
 	reqBody := apiRequest{
-		Model:     model,
-		Messages:  messages,
-		MaxTokens: tokens,
+		Model:    model,
+		Messages: messages,
+	}
+	// GPT-5+ uses max_completion_tokens; older models use max_tokens
+	if strings.HasPrefix(model, "gpt-5") {
+		reqBody.MaxCompletionTokens = tokens
+	} else {
+		reqBody.MaxTokens = tokens
 	}
 
 	bodyBytes, err := json.Marshal(reqBody)
